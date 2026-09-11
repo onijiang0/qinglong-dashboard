@@ -1,0 +1,14 @@
+services:
+  qinglong-dashboard:
+    build: .
+    container_name: qinglong-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      TZ: Asia/Shanghai
+      PORT: 3000
+      QL_URL: ${QL_URL}
+      QL_CLIENT_ID: ${QL_CLIENT_ID}
+      QL_CLIENT_SECRET: ${QL_CLIENT_SECRET}
+      DASH_PASSWORD: ${DASH_PASSWORD}
