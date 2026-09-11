@@ -16,9 +16,12 @@ const crypto = require("crypto");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-const QL_URL = (process.env.QL_URL || "").replace(/\/+$/, "");
-const CLIENT_ID = process.env.QL_CLIENT_ID || "";
-const CLIENT_SECRET = process.env.QL_CLIENT_SECRET || "";
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+fs.mkdirSync(DATA_DIR, { recursive: true });
+const CONFIG_FILE = path.join(DATA_DIR, "config.json");
+const SECRET_FILE = path.join(DATA_DIR, "session.key");
+
+const DASH_USER = (process.env.DASH_USER || "admin").trim();
 const DASH_PASSWORD = process.env.DASH_PASSWORD || "";
 
 // 关键：青龙公网域名过 Cloudflare 反代，默认 UA 一律 403，必须伪装浏览器 UA
@@ -28,24 +31,42 @@ const UA =
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-let tokenCache = { token: "", expiresAt: 0 };
-
-function qlUrl(pathname) {
-  return `${QL_URL}${pathname}`;
+// ---------- 青龙连接配置：面板里保存的 config.json 优先，环境变量兜底 ----------
+function loadPanelConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+  } catch (_) {
+    return {};
+  }
 }
 
-async function getToken() {
+function qlConfig() {
+  const f = loadPanelConfig();
+  return {
+    qlUrl: String(f.qlUrl || process.env.QL_URL || "").replace(/\/+$/, ""),
+    clientId: String(f.clientId || process.env.QL_CLIENT_ID || ""),
+    clientSecret: String(f.clientSecret || process.env.QL_CLIENT_SECRET || "")
+  };
+}
+
+let tokenCache = { token: "", expiresAt: 0 };
+const resetQlSession = () => {
+  tokenCache = { token: "", expiresAt: 0 };
+};
+
+async function getToken(cfg) {
+  cfg = cfg || qlConfig();
   if (tokenCache.token && Date.now() < tokenCache.expiresAt) {
     return tokenCache.token;
   }
-  if (!QL_URL || !CLIENT_ID || !CLIENT_SECRET) {
-    throw new Error("青龙连接配置不完整（QL_URL / QL_CLIENT_ID / QL_CLIENT_SECRET）");
+  if (!cfg.qlUrl || !cfg.clientId || !cfg.clientSecret) {
+    throw new Error("青龙连接配置不完整（地址 / Client ID / Client Secret），请到「连接设置」页填写");
   }
 
   // 新版青龙必须 GET + query 参数换取 token，用 POST 会报 Cannot POST
-  const url = new URL(qlUrl("/open/auth/token"));
-  url.searchParams.set("client_id", CLIENT_ID);
-  url.searchParams.set("client_secret", CLIENT_SECRET);
+  const url = new URL(`${cfg.qlUrl}/open/auth/token`);
+  url.searchParams.set("client_id", cfg.clientId);
+  url.searchParams.set("client_secret", cfg.clientSecret);
 
   const response = await fetch(url, {
     headers: { "User-Agent": UA },
@@ -65,7 +86,8 @@ async function getToken() {
 }
 
 async function qlRequest(pathname, options = {}) {
-  const token = await getToken();
+  const cfg = qlConfig();
+  const token = await getToken(cfg);
   const headers = {
     "User-Agent": UA,
     Authorization: `Bearer ${token}`,
@@ -73,7 +95,7 @@ async function qlRequest(pathname, options = {}) {
     ...(options.headers || {})
   };
 
-  let response = await fetch(qlUrl(pathname), {
+  let response = await fetch(`${cfg.qlUrl}${pathname}`, {
     ...options,
     headers,
     signal: AbortSignal.timeout(20000)
@@ -81,9 +103,9 @@ async function qlRequest(pathname, options = {}) {
 
   // token 失效时重取一次再试
   if (response.status === 401) {
-    tokenCache = { token: "", expiresAt: 0 };
-    const newToken = await getToken();
-    response = await fetch(qlUrl(pathname), {
+    resetQlSession();
+    const newToken = await getToken(cfg);
+    response = await fetch(`${cfg.qlUrl}${pathname}`, {
       ...options,
       headers: { ...headers, Authorization: `Bearer ${newToken}` },
       signal: AbortSignal.timeout(20000)
@@ -114,43 +136,121 @@ function sendError(res, error) {
   });
 }
 
-// ---------- 简单口令登录（DASH_PASSWORD 留空则不启用） ----------
+// ---------- 账号密码登录（DASH_PASSWORD 留空 = 不启用） ----------
 const AUTH_COOKIE = "dash_auth";
-const authHash = () =>
-  crypto.createHash("sha256").update(`ql-nexus:${DASH_PASSWORD}`).digest("hex");
+
+function sessionSecret() {
+  try {
+    const s = fs.readFileSync(SECRET_FILE, "utf8").trim();
+    if (s) return s;
+  } catch (_) {}
+  const s = crypto.randomBytes(32).toString("hex");
+  fs.writeFileSync(SECRET_FILE, s);
+  return s;
+}
+
+// 会话令牌绑定 账号+密码：改密码后旧会话全部失效
+const sessionToken = () =>
+  crypto.createHmac("sha256", sessionSecret()).update(`${DASH_USER}:${DASH_PASSWORD}`).digest("hex");
+
+const hasValidCookie = (req) => {
+  const cookie = (req.headers.cookie || "").split(/;\s*/).find((c) => c.startsWith(`${AUTH_COOKIE}=`));
+  return !!cookie && cookie.split("=")[1] === sessionToken();
+};
+
+app.get("/api/auth", (req, res) => {
+  res.json({ required: !!DASH_PASSWORD, user: DASH_USER, ok: !DASH_PASSWORD || hasValidCookie(req) });
+});
 
 app.post("/api/login", (req, res) => {
-  if (!DASH_PASSWORD) return res.json({ code: 200, message: "未启用口令" });
-  if (req.body && req.body.password === DASH_PASSWORD) {
+  if (!DASH_PASSWORD) return res.json({ code: 200, message: "未启用登录" });
+  const { user, password } = req.body || {};
+  if (String(user || "").trim().toLowerCase() === DASH_USER.toLowerCase() && password === DASH_PASSWORD) {
     res.setHeader(
       "Set-Cookie",
-      `${AUTH_COOKIE}=${authHash()}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`
+      `${AUTH_COOKIE}=${sessionToken()}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`
     );
     return res.json({ code: 200 });
   }
-  res.status(401).json({ code: 401, message: "口令错误" });
+  res.status(401).json({ code: 401, message: "账号或密码错误" });
+});
+
+app.post("/api/logout", (req, res) => {
+  res.setHeader("Set-Cookie", `${AUTH_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  res.json({ code: 200 });
 });
 
 app.use("/api", (req, res, next) => {
-  if (!DASH_PASSWORD || req.path === "/login") return next();
-  const cookie = (req.headers.cookie || "")
-    .split(/;\s*/)
-    .find((c) => c.startsWith(`${AUTH_COOKIE}=`));
-  if (cookie && cookie.split("=")[1] === authHash()) return next();
+  if (!DASH_PASSWORD || req.path === "/login" || req.path === "/auth" || req.path === "/logout") return next();
+  if (hasValidCookie(req)) return next();
   res.status(401).json({ code: 401, message: "未登录或口令已变更" });
 });
 
+// ---------- 连接设置（面板可视化配置青龙，保存到数据卷） ----------
+const maskSecret = (s) => (s ? `••••${s.slice(-4)}` : "");
+
+function mergeConfig(input) {
+  const cur = qlConfig();
+  const cfg = {
+    qlUrl: String(input.qlUrl ?? cur.qlUrl ?? "").trim().replace(/\/+$/, ""),
+    clientId: String(input.clientId ?? cur.clientId ?? "").trim(),
+    clientSecret: String(input.clientSecret ?? "").trim() || cur.clientSecret || ""
+  };
+  if (!/^https?:\/\//.test(cfg.qlUrl)) throw new Error("青龙地址必须以 http:// 或 https:// 开头");
+  if (!cfg.clientId || !cfg.clientSecret) throw new Error("Client ID 和 Client Secret 不能为空");
+  return cfg;
+}
+
+async function testConnection(cfg) {
+  const token = await getToken({ ...cfg });
+  const r = await fetch(`${cfg.qlUrl}/open/system`, {
+    headers: { "User-Agent": UA, Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(15000)
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j?.data?.version) throw new Error(j.message || `连接失败（HTTP ${r.status}）`);
+  return { ok: true, version: j.data.version };
+}
+
+app.get("/api/settings", (req, res) => {
+  const cfg = qlConfig();
+  const panel = loadPanelConfig();
+  res.json({
+    code: 200,
+    qlUrl: cfg.qlUrl,
+    clientId: cfg.clientId,
+    secretMasked: maskSecret(cfg.clientSecret),
+    source: panel.qlUrl || panel.clientId ? "panel" : "env"
+  });
+});
+
+app.post("/api/settings", async (req, res) => {
+  try {
+    const cfg = mergeConfig(req.body || {});
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+    resetQlSession();
+    const test = await testConnection(cfg);
+    res.json({ code: 200, saved: true, ...test });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post("/api/settings/test", async (req, res) => {
+  try {
+    const test = await testConnection(mergeConfig(req.body || {}));
+    res.json({ code: 200, ...test });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 // ---------- 只读接口 ----------
-// 健康检查 + 青龙版本
 app.get("/api/health", async (req, res) => {
   try {
+    const cfg = qlConfig();
     const data = await qlRequest("/open/system");
-    res.json({
-      ok: true,
-      qlUrl: QL_URL,
-      version: data?.data?.version || "未知",
-      publishTime: data?.data?.publishTime || null
-    });
+    res.json({ ok: true, qlUrl: cfg.qlUrl, version: data?.data?.version || "未知" });
   } catch (error) {
     sendError(res, error);
   }
@@ -288,5 +388,5 @@ app.get("*", (req, res) => {
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`QingLong Nexus dashboard running on port ${PORT}`);
-  console.log(`青龙地址: ${QL_URL || "（未配置）"}  口令保护: ${DASH_PASSWORD ? "已启用" : "未启用"}`);
+  console.log(`登录保护: ${DASH_PASSWORD ? `已启用（账号 ${DASH_USER}）` : "未启用"}  配置文件: ${CONFIG_FILE}`);
 });

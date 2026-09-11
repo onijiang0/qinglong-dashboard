@@ -4,3 +4,4 @@ data
 probe.mjs
 shot-*.png
 *.log
+.git

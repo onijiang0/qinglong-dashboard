@@ -1,6 +1,6 @@
 services:
   qinglong-dashboard:
-    build: .
+    image: ghcr.io/onijiang0/qinglong-dashboard:latest
     container_name: qinglong-dashboard
     restart: unless-stopped
     ports:
@@ -8,7 +8,12 @@ services:
     environment:
       TZ: Asia/Shanghai
       PORT: 3000
-      QL_URL: ${QL_URL}
-      QL_CLIENT_ID: ${QL_CLIENT_ID}
-      QL_CLIENT_SECRET: ${QL_CLIENT_SECRET}
+      # 登录面板的账号密码（必设密码，否则面板裸奔）
+      DASH_USER: ${DASH_USER:-admin}
       DASH_PASSWORD: ${DASH_PASSWORD}
+      # 青龙连接（可留空，之后在面板「连接设置」页填写，存进数据卷）
+      QL_URL: ${QL_URL:-}
+      QL_CLIENT_ID: ${QL_CLIENT_ID:-}
+      QL_CLIENT_SECRET: ${QL_CLIENT_SECRET:-}
+    volumes:
+      - ./data:/app/data

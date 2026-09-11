@@ -43,6 +43,7 @@ font-size:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:7px
 padding:9px 13px;border-radius:9px;font-weight:600}
 .btn.primary{background:var(--purple);border-color:var(--purple);color:white}
 .btn.mini{padding:4px 9px;font-size:12px;font-weight:500;border-radius:7px}
+.btn.danger{border-color:#4a2430;color:var(--red)}
 .btn:hover{filter:brightness(1.15)}
 .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:15px;
@@ -66,9 +67,12 @@ th{font-size:12px;color:var(--muted);font-weight:600}
 td{font-size:13px}
 tbody tr:hover{background:#171722}
 .input{background:var(--panel2);color:var(--text);border:1px solid var(--line);
-padding:10px 12px;border-radius:9px;min-width:0}
+padding:10px 12px;border-radius:9px;min-width:0;width:100%}
+label.f{display:block;margin:0 0 14px}
+label.f span{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
 .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}
-.filters .input:first-child{flex:1;min-width:180px}
+.filters .input:first-child{flex:1;min-width:180px;width:auto}
+.filters select.input{width:auto}
 pre{background:#09090f;border:1px solid var(--line);border-radius:10px;
 padding:17px;white-space:pre-wrap;overflow:auto;line-height:1.8;
 font:12px ui-monospace,Consolas,monospace;color:#b6b6ce;min-height:220px;max-height:60vh}
@@ -79,9 +83,12 @@ align-items:center;justify-content:center;z-index:50;padding:20px}
 .overlay.show{display:flex}
 .overlay .box{background:var(--panel);border:1px solid var(--line);border-radius:15px;
 width:min(900px,100%);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.overlay .box.narrow{width:min(380px,100%)}
 .overlay .box header{display:flex;justify-content:space-between;align-items:center;
 gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
+.overlay .box .body{padding:18px}
 .overlay pre{border:0;border-radius:0;min-height:0;flex:1;margin:0;max-height:none}
+.err{color:var(--red);font-size:12px;min-height:16px;margin:4px 0 10px}
 .barlabel{font-size:11px;fill:var(--muted)}
 @media(max-width:950px){
  .side{width:190px}.main{padding:22px}.cards{grid-template-columns:repeat(2,1fr)}
@@ -106,7 +113,7 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
  <button class="nav" data-page="logs">▤　运行日志</button>
  <button class="nav" data-page="system">◉　系统监控</button>
  <div class="muted small" style="padding:24px 12px 8px">系统</div>
- <button class="nav" data-page="settings">⚙　连接状态</button>
+ <button class="nav" data-page="settings">⚙　连接设置</button>
 </aside>
 <main class="main">
  <div class="mobile-nav">
@@ -114,7 +121,7 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
   <button class="nav" data-page="tasks">任务</button>
   <button class="nav" data-page="logs">日志</button>
   <button class="nav" data-page="system">监控</button>
-  <button class="nav" data-page="settings">连接</button>
+  <button class="nav" data-page="settings">设置</button>
  </div>
  <header class="top">
   <div><h1 id="title">数据总览</h1><div class="muted" id="subtitle">QingLong Nexus · 运维中心</div></div>
@@ -133,7 +140,7 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
   </div>
   <div class="grid">
    <div class="panel">
-    <div class="panelhead"><div><h2>上次执行时间分布</h2><div class="muted small" id="trendSub">已启用任务 · 按距上次执行的间隔</div></div></div>
+    <div class="panelhead"><div><h2>上次执行时间分布</h2><div class="muted small">已启用任务 · 按距上次执行的间隔</div></div></div>
     <div class="chart"><svg viewBox="0 0 500 170" preserveAspectRatio="none" id="trendSvg"></svg></div>
    </div>
    <div class="panel">
@@ -175,21 +182,47 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
    <div class="card"><div class="label">CPU 核心数</div><div class="num" id="cpu">—</div><div class="small muted" id="cpuModel"></div></div>
    <div class="card"><div class="label">内存使用率</div><div class="num purple" id="mem">—</div><div class="small muted" id="memDetail"></div></div>
    <div class="card"><div class="label">系统运行时间</div><div class="num" id="uptime">—</div><div class="small muted">容器运行时长</div></div>
-   <div class="card"><div class="label">平台</div><div class="num" style="font-size:20px" id="platform">—</div><div class="small muted">主机名</div></div>
+   <div class="card"><div class="label">平台</div><div class="num" style="font-size:20px" id="platform">—</div><div class="small muted" id="hostname"></div></div>
   </div>
   <div class="panel" style="margin-top:15px"><h2>系统资源</h2><div class="muted small" style="margin-top:8px">数据为面板后端所在环境的资源，不等于青龙容器的全部资源。如需青龙容器级监控，后续可挂载 Docker Socket 只读接入。</div></div>
  </section>
 
  <section class="view" id="settings">
-  <div class="panel">
-   <div class="panelhead"><h2>连接状态</h2><span class="badge" id="settingBadge">检测中</span></div>
-   <p class="muted">青龙地址</p><p style="overflow-wrap:anywhere" id="setAddr">—</p>
-   <p class="muted">青龙版本</p><p id="setVersion">—</p>
-   <p class="muted">当前连接</p><p id="settingText">检测中...</p>
-   <button class="btn primary" id="test">测试连接</button>
+  <div class="grid" style="margin-top:0">
+   <div class="panel">
+    <div class="panelhead"><div><h2>青龙连接</h2><div class="muted small" id="cfgSource">配置来源：—</div></div><span class="badge" id="setBadge">未测试</span></div>
+    <label class="f"><span>青龙地址</span><input class="input" id="cfgUrl" placeholder="https://ql.example.com"></label>
+    <label class="f"><span>Client ID</span><input class="input" id="cfgId" placeholder="青龙 应用设置 里生成的 Client ID" autocomplete="off"></label>
+    <label class="f"><span>Client Secret <em class="muted small" id="cfgSecretHint"></em></span><input class="input" id="cfgSecret" type="password" placeholder="留空 = 保持不变" autocomplete="new-password"></label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+     <button class="btn primary" id="cfgSave">保存并测试</button>
+     <button class="btn" id="cfgTest">仅测试连接</button>
+    </div>
+    <div class="err" id="cfgErr"></div>
+    <div class="muted small">保存后写入后端数据卷（data/config.json），立即生效，无需重启容器。环境变量 QL_* 仅在未保存过配置时生效。</div>
+   </div>
+   <div class="panel">
+    <div class="panelhead"><h2>账号</h2></div>
+    <div class="small muted">当前登录</div><div style="margin:7px 0 18px" id="whoami">—</div>
+    <div class="small muted">青龙版本</div><div style="margin:7px 0 18px" id="setVersion">—</div>
+    <button class="btn danger" id="logout">退出登录</button>
+    <div class="muted small" style="margin-top:14px">账号密码由部署方通过环境变量 DASH_USER / DASH_PASSWORD 配置；留空 DASH_PASSWORD 则不启用登录。</div>
+   </div>
   </div>
  </section>
 </main>
+</div>
+
+<div class="overlay" id="loginOverlay">
+ <div class="box narrow">
+  <header><b>登录 QingLong Nexus</b></header>
+  <div class="body">
+   <label class="f"><span>账号</span><input class="input" id="loginUser" autocomplete="username"></label>
+   <label class="f"><span>密码</span><input class="input" id="loginPwd" type="password" autocomplete="current-password"></label>
+   <div class="err" id="loginErr"></div>
+   <button class="btn primary" id="loginBtn" style="width:100%">登 录</button>
+  </div>
+ </div>
 </div>
 
 <div class="overlay" id="logOverlay">
@@ -201,18 +234,23 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
 
 <script>
 const $=id=>document.getElementById(id);
-let tasks=[],logFiles=[];
-const titles={overview:["数据总览","QingLong Nexus · 运维中心"],tasks:["任务管理","查看与操作青龙定时任务"],logs:["运行日志","查看任务执行输出"],system:["系统监控","面板后端资源使用情况"],settings:["连接状态","青龙 API 连接设置"]};
+let tasks=[],logFiles=[],loginCb=null;
+const titles={overview:["数据总览","QingLong Nexus · 运维中心"],tasks:["任务管理","查看与操作青龙定时任务"],logs:["运行日志","查看任务执行输出"],system:["系统监控","面板后端资源使用情况"],settings:["连接设置","青龙连接与账号管理"]};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-async function api(url,opt,retry=true){
+function showLogin(cb){
+ loginCb=cb||null;
+ $("loginErr").textContent="";
+ $("loginOverlay").classList.add("show");
+ $("loginPwd").focus();
+}
+function hideLogin(){$("loginOverlay").classList.remove("show")}
+
+async function api(url,opt){
  const r=await fetch(url,opt);
- if(r.status===401&&retry){
-  const pwd=prompt("面板已启用口令保护，请输入口令：");
-  if(pwd!=null){
-   await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pwd})}).catch(()=>{});
-   return api(url,opt,false);
-  }
+ if(r.status===401){
+  showLogin();
+  throw new Error("需要登录");
  }
  const data=await r.json().catch(()=>({message:"无效响应"}));
  if(!r.ok)throw new Error(data.message||("请求失败 "+r.status));
@@ -297,21 +335,18 @@ function drawTasks(){
  $("taskRows").innerHTML=list.map(t=>`<tr><td style="max-width:340px;overflow:hidden;text-overflow:ellipsis"><b>${esc(t.name)}</b><div class="small muted" style="white-space:normal">${esc(t.command)}</div></td><td>${status(t)}</td><td class="muted">${esc(t.schedule)}</td><td class="muted" title="${esc(fmtDate(t.lastExecutionTime))}">${fmtRel(t.lastExecutionTime)}</td><td><button class="btn mini" data-act="log" data-id="${t.id}">日志</button> <button class="btn mini" data-act="run" data-id="${t.id}">▶ 执行</button> <button class="btn mini" data-act="${t.isDisabled===1?"enable":"disable"}" data-id="${t.id}">${t.isDisabled===1?"启用":"禁用"}</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">没有匹配任务</td></tr>';
 }
 
+function setConn(ok,msg){
+ $("conn").textContent=ok?"已连接":(msg?"连接失败":"连接失败");
+ $("connDot").className="dot"+(ok?"":" red");
+}
+
 async function loadTasks(){
  try{
   const result=await api("/api/tasks");
   tasks=result.data||[];
   render();
   setConn(true);
- }catch(e){setConn(false,e.message);$("taskRows").innerHTML=`<tr><td colspan="5" class="empty">无法读取青龙数据：${esc(e.message)}</td></tr>`}
-}
-
-function setConn(ok,msg){
- $("conn").textContent=ok?"已连接":(msg?"连接失败":"连接失败");
- $("connDot").className="dot"+(ok?"":" red");
- $("settingBadge").className="badge"+(ok?"":" bad");
- $("settingBadge").textContent=ok?"已连接":"连接失败";
- $("settingText").textContent=ok?"青龙 Open API 连接成功":("失败："+(msg||""));
+ }catch(e){if(e.message!=="需要登录")setConn(false,e.message)}
 }
 
 async function loadHealth(){
@@ -319,9 +354,32 @@ async function loadHealth(){
   const d=await api("/api/health");
   $("qlAddr").textContent=d.qlUrl||"—";
   $("qlVersion").textContent="v"+(d.version||"?");
-  $("setAddr").textContent=d.qlUrl||"—";
   $("setVersion").textContent="v"+(d.version||"?");
+  $("setBadge").className="badge";$("setBadge").textContent="已连接";
+ }catch(e){
+  $("setBadge").className="badge bad";$("setBadge").textContent="连接失败";
+ }
+}
+
+async function loadSettings(){
+ try{
+  const d=await api("/api/settings");
+  $("cfgUrl").value=d.qlUrl||"";
+  $("cfgId").value=d.clientId||"";
+  $("cfgSecret").value="";
+  $("cfgSecret").placeholder=d.secretMasked?`${d.secretMasked}（留空 = 保持不变）`:"未设置";
+  $("cfgSecretHint").textContent=d.secretMasked?`当前：${d.secretMasked}`:"";
+  $("cfgSource").textContent=d.source==="panel"?"配置来源：面板设置（数据卷）":"配置来源：环境变量";
  }catch(e){}
+}
+
+async function loadAuth(){
+ try{
+  const a=await api("/api/auth");
+  $("whoami").textContent=a.ok?(a.user+"（已登录）"):a.user+"（未登录）";
+  $("loginUser").value=a.user||"";
+  return a;
+ }catch(e){return null}
 }
 
 async function loadLogs(){
@@ -332,7 +390,7 @@ async function loadLogs(){
   $("logDir").innerHTML='<option value="">选择任务目录...</option>'+dirs.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("");
   $("logSelect").innerHTML='<option value="">先选择目录，再选日志文件</option>';
   $("logMeta").textContent=`共 ${result.dirCount} 个任务目录、${result.total} 个日志文件`;
- }catch(e){$("logText").textContent=e.message}
+ }catch(e){if(e.message!=="需要登录")$("logText").textContent=e.message}
 }
 
 function fillFileSelect(dir){
@@ -362,7 +420,7 @@ async function loadSystem(){
   $("uptime").textContent=h>0?h+"h "+m+"m":m+"m";
   $("platform").textContent=d.platform+"-"+d.arch;
   $("platform").style.fontSize="16px";
-  $("platform").nextElementSibling.textContent=d.hostname||"主机名";
+  $("hostname").textContent=d.hostname||"";
  }catch(e){}
 }
 
@@ -372,20 +430,24 @@ function page(name){
  $("title").textContent=titles[name][0];$("subtitle").textContent=titles[name][1];
  if(name==="logs"&&!logFiles.length)loadLogs();
  if(name==="system")loadSystem();
- if(name==="settings")loadHealth();
+ if(name==="settings"){loadSettings();loadHealth();loadAuth()}
+}
+
+async function refreshAll(){
+ loadTasks();
+ if($("system").classList.contains("active"))loadSystem();
 }
 
 document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>page(b.dataset.page)));
 $("search").addEventListener("input",drawTasks);
 $("filter").addEventListener("change",drawTasks);
-$("refresh").addEventListener("click",()=>{loadTasks();if($("system").classList.contains("active"))loadSystem()});
-$("test").addEventListener("click",async()=>{await loadHealth();loadTasks()});
+$("refresh").addEventListener("click",refreshAll);
 $("reloadLogs").addEventListener("click",loadLogs);
 $("logDir").addEventListener("change",()=>fillFileSelect($("logDir").value));
 $("logSelect").addEventListener("change",()=>{const v=$("logSelect").value;if(!v)return;openLog(v)});
 
 $("taskRows").addEventListener("click",async e=>{
- const b=e.target.closest(".action")||e.target.closest("button[data-act]");
+ const b=e.target.closest("button[data-act]");
  if(!b)return;
  const id=b.dataset.id,act=b.dataset.act;
  const t=tasks.find(x=>String(x.id)===String(id));
@@ -398,14 +460,68 @@ $("taskRows").addEventListener("click",async e=>{
  try{
   await api(`/api/tasks/${id}/${act}`,{method:"PUT"});
   setTimeout(loadTasks,1500);
- }catch(e){alert(e.message)}
+ }catch(e){if(e.message!=="需要登录")alert(e.message)}
 });
 
 $("ovClose").addEventListener("click",()=>$("logOverlay").classList.remove("show"));
 $("logOverlay").addEventListener("click",e=>{if(e.target===$("logOverlay"))$("logOverlay").classList.remove("show")});
 
+// ---------- 登录 ----------
+async function doLogin(){
+ const user=$("loginUser").value.trim(),password=$("loginPwd").value;
+ $("loginErr").textContent="";
+ try{
+  const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user,password})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){$("loginErr").textContent=d.message||"登录失败";return}
+  $("loginPwd").value="";
+  hideLogin();
+  const cb=loginCb;loginCb=null;
+  loadAuth();
+  if(cb)cb();else refreshAll();
+ }catch(e){$("loginErr").textContent="网络错误"}
+}
+$("loginBtn").addEventListener("click",doLogin);
+$("loginPwd").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin()});
+$("loginUser").addEventListener("keydown",e=>{if(e.key==="Enter")$("loginPwd").focus()});
+
+$("logout").addEventListener("click",async()=>{
+ await fetch("/api/logout",{method:"POST"}).catch(()=>{});
+ tasks=[];logFiles=[];
+ showLogin();
+});
+
+// ---------- 连接设置 ----------
+$("cfgSave").addEventListener("click",async()=>{
+ $("cfgErr").textContent="";
+ try{
+  const d=await api("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({qlUrl:$("cfgUrl").value,clientId:$("cfgId").value,clientSecret:$("cfgSecret").value})});
+  $("cfgErr").style.color="var(--green)";
+  $("cfgErr").textContent=`已保存，连接成功（青龙 v${d.version}）`;
+  loadSettings();loadHealth();loadTasks();
+ }catch(e){$("cfgErr").style.color="var(--red)";$("cfgErr").textContent=e.message}
+});
+$("cfgTest").addEventListener("click",async()=>{
+ $("cfgErr").textContent="";
+ try{
+  const d=await api("/api/settings/test",{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({qlUrl:$("cfgUrl").value,clientId:$("cfgId").value,clientSecret:$("cfgSecret").value})});
+  $("cfgErr").style.color="var(--green)";
+  $("cfgErr").textContent=`连接成功（青龙 v${d.version}），尚未保存`;
+ }catch(e){$("cfgErr").style.color="var(--red)";$("cfgErr").textContent=e.message}
+});
+
 setInterval(()=>{if(!document.hidden)loadTasks()},30000);
-loadTasks();loadHealth();
+
+// 启动：先问登录状态，需要登录则弹窗，登录成功后再拉数据
+(async function boot(){
+ try{
+  const a=await loadAuth();
+  if(a&&a.required&&!a.ok){showLogin();return}
+  loadTasks();loadHealth();
+ }catch(e){}
+})();
 </script>
 </body>
 </html>
