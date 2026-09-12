@@ -397,6 +397,20 @@ app.put("/api/tasks/:id/disable", async (req, res) => {
 app.get("/api/system", (req, res) => {
   const total = os.totalmem();
   const free = os.freemem();
+  // 虚拟内存：Linux（含 Docker 容器内默认挂载的宿主机 /proc/meminfo）读取 Swap；其他平台无
+  let swap = null;
+  if (os.platform() === "linux") {
+    try {
+      const txt = require("fs").readFileSync("/proc/meminfo", "utf8");
+      const kb = (k) => {
+        const m = txt.match(new RegExp("^" + k + ":\\s+(\\d+) kB", "m"));
+        return m ? Number(m[1]) * 1024 : 0;
+      };
+      const swapTotal = kb("SwapTotal"), swapFree = kb("SwapFree");
+      if (swapTotal > 0)
+        swap = { total: swapTotal, free: swapFree, used: swapTotal - swapFree };
+    } catch {}
+  }
   res.json({
     code: 200,
     data: {
@@ -410,6 +424,7 @@ app.get("/api/system", (req, res) => {
       memoryFree: free,
       memoryUsed: total - free,
       memoryPercent: Math.round((1 - free / total) * 100),
+      swap,
       uptime: os.uptime()
     }
   });

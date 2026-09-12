@@ -88,10 +88,12 @@ padding:20px;min-width:0}
 padding:20px;min-width:0}
 .panelhead{display:flex;align-items:center;justify-content:space-between;gap:10px;
 margin-bottom:18px;flex-wrap:wrap}
-.chart{width:100%;height:190px}
-.chart svg{width:100%;height:100%}
-.bar{cursor:pointer}
-.bar:hover{opacity:1 !important;filter:brightness(1.3)}
+.chart{width:100%;height:260px}
+.chart svg{width:100%;height:100%;display:block}
+.bar{cursor:pointer;transition:filter .15s,opacity .15s}
+.bar:hover{filter:brightness(1.3) drop-shadow(0 0 6px var(--accentSoft))}
+.barlabel{font-size:11px;fill:var(--muted)}
+.barval{font-weight:800}
 .view{display:none}.view.active{display:block}
 .tablewrap{overflow:auto}
 table{width:100%;border-collapse:collapse;min-width:600px}
@@ -199,14 +201,14 @@ background:var(--panel2)}
   </div>
   <div class="panel" style="margin-top:15px">
    <div class="panelhead">
-    <div><h2>执行时间分布</h2><div class="muted small">已启用任务 · 点击柱条查看区间内运行的任务</div></div>
+    <div><h2 style="display:flex;align-items:center;gap:10px">执行时间分布 <span class="badge" id="trendEnabled" style="position:static;transform:none"></span></h2><div class="muted small">已启用任务 · 点击柱条查看区间内运行的任务</div></div>
     <div class="seg" id="rangeSeg">
      <button data-r="86400" class="on">24 小时</button>
      <button data-r="259200">3 天</button>
      <button data-r="604800">7 天</button>
     </div>
    </div>
-   <div class="chart"><svg viewBox="0 0 640 190" preserveAspectRatio="none" id="trendSvg"></svg></div>
+   <div class="chart"><svg id="trendSvg"></svg></div>
   </div>
   <div class="grid">
    <div class="panel">
@@ -271,7 +273,7 @@ background:var(--panel2)}
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:15px">
    <div class="panel"><div class="panelhead"><h2>内存明细</h2></div>
-    <div class="tablewrap"><table><tbody id="memTable"></tbody></table></div>
+    <table style="width:100%;min-width:0"><tbody id="memTable"></tbody></table>
    </div>
    <div class="panel"><div class="panelhead"><h2>说明</h2></div>
     <div class="muted small" style="line-height:2">数据为面板后端所在环境的资源，不等于青龙容器全部资源。页面停留期间每 5 秒自动刷新；如需青龙容器级监控，后续可挂载 Docker Socket 只读接入。</div>
@@ -455,7 +457,7 @@ function render(){
  drawTasks();
 }
 
-/* ---------- 总览：分布图（可调区间 + 点击下钻） ---------- */
+/* ---------- 总览：分布图（设计稿版：数值顶排 / 峰值内嵌标签 / 最小可见高度） ---------- */
 function drawTrend(list){
  const range=Number(trendRange),N=8,step=range/N;
  const buckets=[];
@@ -468,17 +470,44 @@ function drawTrend(list){
   const b=buckets.find(x=>x.lo!==null&&age>=x.lo&&age<x.hi);
   if(b)b.count++;
  }
+ $("trendEnabled").textContent="已启用 "+list.length;
+ const svg=$("trendSvg");
+ const W=Math.max(svg.parentElement.clientWidth||680,440),H=260;
+ svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+ svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+ const n=buckets.length;
+ const gap=Math.max(W*0.016,10),bw=Math.min(62,(W-40-gap*(n-1))/n);
+ const x0=(W-(bw*n+gap*(n-1)))/2;
+ const top=46,base=216,plotH=base-top;
  const max=Math.max(...buckets.map(b=>b.count),1);
- const bw=58,gap=12,x0=10,base=168,W=640;
+ const maxI=buckets.reduce((mi,b,i)=>b.count>buckets[mi].count?i:mi,0);
+ const peakPct=list.length?Math.round(buckets[maxI].count/list.length*100):0;
+ let defs=`<defs><linearGradient id="barG" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="var(--accentSoft)"/><stop offset="0.25" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0.55"/></linearGradient></defs>`;
+ let grid="";
+ for(const gy of [base-plotH*0.25,base-plotH*0.5,base-plotH*0.75,top])
+  grid+=`<line x1="${x0}" y1="${gy}" x2="${x0+bw*n+gap*(n-1)}" y2="${gy}" stroke="var(--line)" stroke-dasharray="3 5" opacity="0.5"/>`;
+ grid+=`<line x1="${x0}" y1="${base}" x2="${x0+bw*n+gap*(n-1)}" y2="${base}" stroke="var(--line)" stroke-width="1.2"/>`;
  let bars="",labels="",values="";
  buckets.forEach((b,i)=>{
-  const x=x0+i*(bw+gap),h=Math.round(b.count/max*118),y=base-h;
+  const x=x0+i*(bw+gap);
   const dim=b.label==="从未执行";
-  bars+=`<rect class="bar" data-i="${i}" x="${x}" y="${y}" width="${bw}" height="${Math.max(h,2)}" rx="4" fill="${dim?"var(--muted)":"var(--accent)"}" opacity="${dim?0.45:0.85}"/>`;
-  labels+=`<text class="barlabel" x="${x+bw/2}" y="184" text-anchor="middle">${b.label}</text>`;
-  values+=`<text x="${x+bw/2}" y="${y-6}" text-anchor="middle" font-size="12" fill="var(--text)">${b.count}</text>`;
+  const h=b.count>0?Math.max(b.count/max*plotH,10):2,y=base-h;
+  bars+=`<rect class="bar" data-i="${i}" x="${x}" y="${y}" width="${bw}" height="${h}" rx="${Math.min(11,bw/2.6)}" fill="${dim?"var(--muted)":"url(#barG)"}" opacity="${dim?0.3:0.92}"/>`;
+  if(i===maxI&&b.count>0&&h>34){
+   const tagW=bw-12,tagY=y+9;
+   bars+=`<rect x="${x+6}" y="${tagY}" width="${tagW}" height="17" rx="8.5" fill="var(--bg)" opacity="0.55"/>`;
+   bars+=`<text x="${x+bw/2}" y="${tagY+12}" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text)">峰值 ${peakPct}%</text>`;
+  }
+  labels+=`<text class="barlabel" x="${x+bw/2}" y="${base+20}" text-anchor="middle" ${i===maxI?`font-weight="800" fill="var(--accentSoft)"`:""}>${b.label}</text>`;
+  const big=b.count>=100?14.5:13;
+  values+=`<text class="barval" x="${x+bw/2}" y="${top-12}" text-anchor="middle" font-size="${big}" fill="${dim?"var(--muted)":"var(--text)"}" opacity="${dim?0.75:1}">${b.count}</text>`;
  });
- $("trendSvg").innerHTML=bars+labels+values;
+ const footY=H-10;
+ const foot=`<circle cx="${x0+3}" cy="${footY-3}" r="2.5" fill="var(--accent)" opacity="0.7"/>
+<text x="${x0+12}" y="${footY}" font-size="10" fill="var(--muted)">柱按同一刻度绘制；小于 3 次的区间保障最小可见高度</text>
+<text x="${x0+bw*n+gap*(n-1)}" y="${footY}" text-anchor="end" font-size="10" fill="var(--muted)">共 ${n} 个区间</text>`;
+ svg.innerHTML=defs+grid+bars+labels+values+foot;
 }
 function rangeLabel(lo,hi){
  const f=s=>s>=86400?(s/86400)+"d":s>=3600?(s/3600)+"h":(s/60)+"m";
@@ -668,11 +697,19 @@ async function loadSystem(){
   $("loadavgDetail").textContent=`1m ${load1.toFixed(2)} / 5m ${(d.loadavg?.[1]||0).toFixed(2)} / 15m ${(d.loadavg?.[2]||0).toFixed(2)}`;
   $("platform").textContent=d.platform+"-"+d.arch;
   $("hostname").textContent=d.hostname||"";
-  $("memTable").innerHTML=`
-   <tr><td class="muted">总量</td><td>${(d.memoryTotal/1073741824).toFixed(2)} GB</td></tr>
-   <tr><td class="muted">已用</td><td>${(d.memoryUsed/1073741824).toFixed(2)} GB（${memP}%）</td></tr>
-   <tr><td class="muted">空闲</td><td>${(d.memoryFree/1073741824).toFixed(2)} GB</td></tr>
-   <tr><td class="muted">核心数</td><td>${d.cpuCount}</td></tr>`;
+  const GB=1073741824;
+ let swapRow="";
+ if(d.swap&&d.swap.total>0){
+  const sp=Math.round(d.swap.used/d.swap.total*100);
+  swapRow=`<tr><td colspan="2" style="padding-top:14px"><div class="muted small" style="margin-bottom:7px">虚拟内存 Swap · 总 ${(d.swap.total/GB).toFixed(2)} GB</div>
+   <div class="pbar"><i class="${barCls(sp)}" style="width:${Math.min(sp,100)}%"></i></div>
+   <div class="small muted" style="margin-top:6px">已用 ${(d.swap.used/GB).toFixed(2)} GB（${sp}%） · 空闲 ${(d.swap.free/GB).toFixed(2)} GB</div></td></tr>`;
+ }
+ $("memTable").innerHTML=`
+   <tr><td class="muted">总量</td><td>${(d.memoryTotal/GB).toFixed(2)} GB</td></tr>
+   <tr><td class="muted">已用</td><td>${(d.memoryUsed/GB).toFixed(2)} GB（${memP}%）</td></tr>
+   <tr><td class="muted">空闲</td><td>${(d.memoryFree/GB).toFixed(2)} GB</td></tr>
+   <tr><td class="muted">核心数</td><td>${d.cpuCount}</td></tr>${swapRow}`;
  }catch(e){}
 }
 function setSystemTimer(on){
@@ -715,6 +752,11 @@ $("rangeSeg").addEventListener("click",e=>{
 $("trendSvg").addEventListener("click",e=>{
  const r=e.target.closest("rect.bar");
  if(r)openBucket(Number(r.dataset.i));
+});
+let rsTimer;
+window.addEventListener("resize",()=>{
+ clearTimeout(rsTimer);
+ rsTimer=setTimeout(()=>{if(tasks.length)drawTrend(tasks.filter(t=>t.isDisabled!==1))},200);
 });
 $("bkClose").addEventListener("click",()=>$("bucketOverlay").classList.remove("show"));
 $("bucketOverlay").addEventListener("click",e=>{if(e.target===$("bucketOverlay"))$("bucketOverlay").classList.remove("show")});
