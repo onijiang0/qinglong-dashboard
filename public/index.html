@@ -3,30 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QingLong Nexus</title>
+<title>青龙运维</title>
 <style>
 :root{
  --bg:#09090f;--panel:#11111b;--panel2:#171725;
  --line:#28283a;--text:#eeeef7;--muted:#9292ad;
- --purple:#9b7cff;--green:#3ddc97;--red:#ff647c;--amber:#efb327;
+ --accent:#9b7cff;--accentSoft:#bca8ff;--accentDim:rgba(155,124,255,.14);
+ --sideBg:#0d0d15;--navActiveBg:#211b39;--navActiveTx:#c8baff;--navHoverBg:#1c1a2a;
+ --green:#3ddc97;--red:#ff647c;--amber:#efb327;
+}
+body[data-theme="ocean"]{
+ --bg:#060d17;--panel:#0c1526;--panel2:#11203a;
+ --line:#1d3352;--muted:#7e93b4;
+ --accent:#4cc3ff;--accentSoft:#8fd9ff;--accentDim:rgba(76,195,255,.14);
+ --sideBg:#08101f;--navActiveBg:#12283f;--navActiveTx:#9fdcff;--navHoverBg:#0e1c30;
+}
+body[data-theme="jade"]{
+ --bg:#070c0a;--panel:#0d1713;--panel2:#122019;
+ --line:#1d3328;--muted:#86a294;
+ --accent:#34d399;--accentSoft:#7ce7bb;--accentDim:rgba(52,211,153,.13);
+ --sideBg:#0a120e;--navActiveBg:#12291e;--navActiveTx:#8fe9c3;--navHoverBg:#0f1f17;
+}
+body[data-theme="sakura"]{
+ --bg:#120a12;--panel:#1b101c;--panel2:#241726;
+ --line:#3a2440;--muted:#b292ae;
+ --accent:#ff7eb6;--accentSoft:#ffb1d3;--accentDim:rgba(255,126,182,.13);
+ --sideBg:#150c16;--navActiveBg:#321b35;--navActiveTx:#ffc0da;--navHoverBg:#271629;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);
 font:14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body.fx{background-image:
+ radial-gradient(1100px 500px at 85% -10%, var(--accentDim), transparent 60%),
+ radial-gradient(900px 420px at -10% 110%, var(--accentDim), transparent 55%)}
+body.bgimg{background-size:cover;background-position:center;background-attachment:fixed}
+body.bgimg::before{content:"";position:fixed;inset:0;background:var(--bg);opacity:.82;z-index:-1}
 button,input,select{font:inherit}
 button{cursor:pointer}
 button:focus-visible,input:focus-visible,select:focus-visible{
- outline:2px solid var(--purple);outline-offset:2px}
+ outline:2px solid var(--accent);outline-offset:2px}
 .app{display:flex;min-height:100vh}
-.side{width:230px;border-right:1px solid var(--line);padding:25px 15px;
-background:#0d0d15;flex-shrink:0}
-.logo{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:800;
-margin:0 10px 34px}
-.logo span{background:#9b7cff;color:white;border-radius:11px;padding:9px 12px}
+.side{width:232px;border-right:1px solid var(--line);padding:22px 15px;
+background:var(--sideBg);flex-shrink:0;display:flex;flex-direction:column}
+.logo{display:flex;align-items:center;gap:11px;margin:0 8px 6px}
+.logo img{width:44px;height:44px;border-radius:12px;object-fit:cover;
+border:2px solid var(--accent);box-shadow:0 0 14px var(--accentDim)}
+.logo .name{font-size:18px;font-weight:800;line-height:1.2}
+.logo .ver{display:inline-block;font-size:10px;font-weight:700;color:var(--accentSoft);
+background:var(--accentDim);border:1px solid var(--line);border-radius:99px;
+padding:1px 7px;margin-top:3px;letter-spacing:.5px}
+.sideTag{margin:0 10px 22px;color:var(--muted);font-size:12px}
 .nav{display:block;width:100%;border:0;background:transparent;color:var(--muted);
 padding:12px 14px;border-radius:9px;text-align:left;margin:3px 0}
-.nav.active{background:#211b39;color:#c8baff}
-.nav:hover{background:#1c1a2a}
+.nav.active{background:var(--navActiveBg);color:var(--navActiveTx)}
+.nav:hover{background:var(--navHoverBg)}
+.sideFoot{margin-top:auto;padding:14px 10px 4px;color:var(--muted);font-size:11px;line-height:1.8}
 .main{padding:28px;flex:1;min-width:0;max-width:1500px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:15px;
 flex-wrap:wrap;margin-bottom:28px}
@@ -34,30 +65,33 @@ h1{font-size:25px;margin:0 0 7px}
 h2{font-size:17px;margin:0 0 5px}
 .muted{color:var(--muted)}
 .small{font-size:12px}
-.badge{border-radius:99px;padding:4px 9px;background:#1d2930;color:var(--green);
+.badge{border-radius:99px;padding:4px 9px;background:var(--accentDim);color:var(--accentSoft);
 font-size:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
-.badge.bad{background:#2d1a20;color:var(--red)}
+.badge.bad{background:rgba(255,100,124,.12);color:var(--red)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
 .dot.red{background:var(--red)}.dot.mut{background:var(--muted)}.dot.amb{background:var(--amber)}
 .btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);
 padding:9px 13px;border-radius:9px;font-weight:600}
-.btn.primary{background:var(--purple);border-color:var(--purple);color:white}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.mini{padding:4px 9px;font-size:12px;font-weight:500;border-radius:7px}
 .btn.danger{border-color:#4a2430;color:var(--red)}
 .btn:hover{filter:brightness(1.15)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:15px;
 padding:20px;min-width:0}
 .card .label{color:var(--muted);font-size:13px}
 .num{font-size:30px;font-weight:800;letter-spacing:-1px;margin:13px 0 7px}
-.green{color:var(--green)}.red{color:var(--red)}.purple{color:#bca8ff}.amber{color:var(--amber)}
+.green{color:var(--green)}.red{color:var(--red)}.purple{color:var(--accentSoft)}.amber{color:var(--amber)}
 .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:15px;margin-top:15px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;
 padding:20px;min-width:0}
 .panelhead{display:flex;align-items:center;justify-content:space-between;gap:10px;
 margin-bottom:18px;flex-wrap:wrap}
-.chart{width:100%;height:170px}
+.chart{width:100%;height:190px}
 .chart svg{width:100%;height:100%}
+.bar{cursor:pointer}
+.bar:hover{opacity:1 !important;filter:brightness(1.3)}
 .view{display:none}.view.active{display:block}
 .tablewrap{overflow:auto}
 table{width:100%;border-collapse:collapse;min-width:600px}
@@ -65,55 +99,79 @@ th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);
 white-space:nowrap}
 th{font-size:12px;color:var(--muted);font-weight:600}
 td{font-size:13px}
-tbody tr:hover{background:#171722}
+tbody tr:hover{background:var(--navHoverBg)}
+tr.dirrow{background:var(--panel2)}
+tr.dirrow td{font-weight:600}
+tr.filechild td:first-child{padding-left:34px}
 .input{background:var(--panel2);color:var(--text);border:1px solid var(--line);
 padding:10px 12px;border-radius:9px;min-width:0;width:100%}
 label.f{display:block;margin:0 0 14px}
 label.f span{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
-.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px;align-items:center}
 .filters .input:first-child{flex:1;min-width:180px;width:auto}
 .filters select.input{width:auto}
-pre{background:#09090f;border:1px solid var(--line);border-radius:10px;
+pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;
 padding:17px;white-space:pre-wrap;overflow:auto;line-height:1.8;
 font:12px ui-monospace,Consolas,monospace;color:#b6b6ce;min-height:220px;max-height:60vh}
 .empty{text-align:center;padding:30px;color:var(--muted)}
 .mobile-nav{display:none}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--muted);padding:7px 13px;font-size:12px;font-weight:600}
+.seg button.on{background:var(--accent);color:#fff}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;
 align-items:center;justify-content:center;z-index:50;padding:20px}
 .overlay.show{display:flex}
 .overlay .box{background:var(--panel);border:1px solid var(--line);border-radius:15px;
-width:min(900px,100%);max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+width:min(960px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
 .overlay .box.narrow{width:min(380px,100%)}
 .overlay .box header{display:flex;justify-content:space-between;align-items:center;
 gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
-.overlay .box .body{padding:18px}
+.overlay .box .body{padding:18px;overflow:auto}
 .overlay pre{border:0;border-radius:0;min-height:0;flex:1;margin:0;max-height:none}
 .err{color:var(--red);font-size:12px;min-height:16px;margin:4px 0 10px}
 .barlabel{font-size:11px;fill:var(--muted)}
+.pbar{height:9px;border-radius:99px;background:var(--panel2);overflow:hidden;
+border:1px solid var(--line);margin-top:9px}
+.pbar i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.pbar i.warn{background:var(--amber)}.pbar i.hot{background:var(--red)}
+.themeGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.themeCard{border:1px solid var(--line);border-radius:11px;padding:12px;text-align:left;
+background:var(--panel2)}
+.themeCard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.themeCard .sw{display:flex;gap:5px;margin-bottom:9px}
+.themeCard .sw i{width:16px;height:16px;border-radius:5px;display:inline-block;border:1px solid rgba(255,255,255,.15)}
+.themeCard b{font-size:13px;display:block}
+.themeCard .small{margin-top:3px}
+.ckrow{display:flex;align-items:center;gap:9px;margin:10px 0;color:var(--text);font-size:13px}
 @media(max-width:950px){
  .side{width:190px}.main{padding:22px}.cards{grid-template-columns:repeat(2,1fr)}
- .grid{grid-template-columns:1fr}
+ .grid{grid-template-columns:1fr}.themeGrid{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:600px){
  .app{display:block}.side{display:none}.main{padding:16px}
  .mobile-nav{display:flex;gap:7px;overflow:auto;margin-bottom:20px}
  .mobile-nav .nav{width:auto;white-space:nowrap}
  .cards{gap:10px}.card{padding:15px}.num{font-size:26px}
- .panel{padding:15px}h1{font-size:22px}
+ .panel{padding:15px}h1{font-size:22px}.themeGrid{grid-template-columns:1fr 1fr}
 }
 </style>
 </head>
-<body>
+<body class="fx" data-theme="aurora">
 <div class="app">
 <aside class="side">
- <div class="logo"><span>Q</span> QingLong</div>
- <div class="muted small" style="padding:0 12px 8px">工作台</div>
+ <div class="logo">
+  <img src="/logo.jpg" alt="logo">
+  <div><div class="name">青龙运维</div><span class="ver">v2.0</span></div>
+ </div>
+ <div class="sideTag">QingLong Ops</div>
  <button class="nav active" data-page="overview">▦　数据总览</button>
  <button class="nav" data-page="tasks">☷　任务管理</button>
- <button class="nav" data-page="logs">▤　运行日志</button>
+ <button class="nav" data-page="logs">▤　日志管理</button>
  <button class="nav" data-page="system">◉　系统监控</button>
- <div class="muted small" style="padding:24px 12px 8px">系统</div>
+ <div class="sideTag" style="margin-top:20px">系统</div>
  <button class="nav" data-page="settings">⚙　连接设置</button>
+ <button class="nav" data-page="beauty">✧　界面美化</button>
+ <div class="sideFoot">QingLong Nexus<br>Dark Plus v2.0</div>
 </aside>
 <main class="main">
  <div class="mobile-nav">
@@ -122,9 +180,10 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
   <button class="nav" data-page="logs">日志</button>
   <button class="nav" data-page="system">监控</button>
   <button class="nav" data-page="settings">设置</button>
+  <button class="nav" data-page="beauty">美化</button>
  </div>
  <header class="top">
-  <div><h1 id="title">数据总览</h1><div class="muted" id="subtitle">QingLong Nexus · 运维中心</div></div>
+  <div><h1 id="title">数据总览</h1><div class="muted" id="subtitle">青龙运维 · 运维中心</div></div>
   <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
    <span class="badge"><span class="dot" id="connDot"></span> <span id="conn">连接中</span></span>
    <button class="btn" id="refresh">↻ 刷新</button>
@@ -138,10 +197,21 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
    <div class="card"><div class="label">24h 内执行过</div><div class="num green" id="recent24">—</div><div class="small muted">按上次执行时间</div></div>
    <div class="card"><div class="label">已禁用</div><div class="num amber" id="disabledN">—</div><div class="small muted">未参与调度</div></div>
   </div>
+  <div class="panel" style="margin-top:15px">
+   <div class="panelhead">
+    <div><h2>执行时间分布</h2><div class="muted small">已启用任务 · 点击柱条查看区间内运行的任务</div></div>
+    <div class="seg" id="rangeSeg">
+     <button data-r="86400" class="on">24 小时</button>
+     <button data-r="259200">3 天</button>
+     <button data-r="604800">7 天</button>
+    </div>
+   </div>
+   <div class="chart"><svg viewBox="0 0 640 190" preserveAspectRatio="none" id="trendSvg"></svg></div>
+  </div>
   <div class="grid">
    <div class="panel">
-    <div class="panelhead"><div><h2>上次执行时间分布</h2><div class="muted small">已启用任务 · 按距上次执行的间隔</div></div></div>
-    <div class="chart"><svg viewBox="0 0 500 170" preserveAspectRatio="none" id="trendSvg"></svg></div>
+    <div class="panelhead"><div><h2>最近执行的任务</h2><div class="muted small">按上次执行时间倒序</div></div><button class="btn" data-page="tasks">查看全部 →</button></div>
+    <div class="tablewrap"><table><thead><tr><th>任务名称</th><th>状态</th><th>定时规则</th><th>上次执行</th></tr></thead><tbody id="recent"><tr><td colspan="4" class="empty">加载中...</td></tr></tbody></table></div>
    </div>
    <div class="panel">
     <div class="panelhead"><h2>节点状态</h2><span class="badge">API</span></div>
@@ -150,10 +220,6 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
     <div class="small muted">后端服务</div><div class="green" style="margin:7px 0 18px">● Online</div>
     <div class="small muted">数据来源</div><div style="margin-top:7px" id="source">青龙 Open API（服务端代理）</div>
    </div>
-  </div>
-  <div class="panel" style="margin-top:15px">
-   <div class="panelhead"><div><h2>最近执行的任务</h2><div class="muted small">按上次执行时间倒序</div></div><button class="btn" data-page="tasks">查看全部 →</button></div>
-   <div class="tablewrap"><table><thead><tr><th>任务名称</th><th>状态</th><th>定时规则</th><th>上次执行</th></tr></thead><tbody id="recent"><tr><td colspan="4" class="empty">加载中...</td></tr></tbody></table></div>
   </div>
  </section>
 
@@ -167,24 +233,50 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
 
  <section class="view" id="logs">
   <div class="panel">
-   <div class="panelhead"><h2>运行日志</h2><button class="btn" id="reloadLogs">刷新日志</button></div>
-   <div class="filters">
-    <select class="input" id="logDir"><option value="">选择任务目录...</option></select>
-    <select class="input" id="logSelect"><option value="">先选择目录，再选日志文件</option></select>
+   <div class="panelhead">
+    <div><h2>日志管理</h2><div class="muted small" id="logMeta">—</div></div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+     <button class="btn" id="reloadLogs">↻ 刷新</button>
+     <button class="btn danger" id="delSel">🗑 删除选中</button>
+    </div>
    </div>
-   <div class="muted small" style="margin-bottom:10px" id="logMeta"></div>
-   <pre id="logText">请选择一个日志文件。</pre>
+   <div class="filters"><input class="input" id="logSearch" placeholder="搜索任务目录..."></div>
+   <div class="tablewrap"><table><thead><tr>
+    <th style="width:34px"><input type="checkbox" id="ckAllDirs"></th>
+    <th>任务目录</th><th>日志数</th><th>总大小</th><th>最新日志</th><th style="width:80px">展开</th>
+   </tr></thead><tbody id="dirRows"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody></table></div>
   </div>
  </section>
 
  <section class="view" id="system">
   <div class="cards">
-   <div class="card"><div class="label">CPU 核心数</div><div class="num" id="cpu">—</div><div class="small muted" id="cpuModel"></div></div>
-   <div class="card"><div class="label">内存使用率</div><div class="num purple" id="mem">—</div><div class="small muted" id="memDetail"></div></div>
-   <div class="card"><div class="label">系统运行时间</div><div class="num" id="uptime">—</div><div class="small muted">容器运行时长</div></div>
-   <div class="card"><div class="label">平台</div><div class="num" style="font-size:20px" id="platform">—</div><div class="small muted" id="hostname"></div></div>
+   <div class="card">
+    <div class="label">内存使用率</div><div class="num purple" id="mem">—</div>
+    <div class="small muted" id="memDetail"></div>
+    <div class="pbar"><i id="memBar" style="width:0%"></i></div>
+   </div>
+   <div class="card">
+    <div class="label">CPU 负载</div><div class="num" id="load">—</div>
+    <div class="small muted" id="cpuModel"></div>
+    <div class="pbar"><i id="loadBar" style="width:0%"></i></div>
+   </div>
+   <div class="card">
+    <div class="label">运行时间</div><div class="num green" id="uptime">—</div>
+    <div class="small muted" id="loadavgDetail">1m / 5m / 15m 负载</div>
+   </div>
+   <div class="card">
+    <div class="label">平台</div><div class="num" style="font-size:20px" id="platform">—</div>
+    <div class="small muted" id="hostname"></div>
+   </div>
   </div>
-  <div class="panel" style="margin-top:15px"><h2>系统资源</h2><div class="muted small" style="margin-top:8px">数据为面板后端所在环境的资源，不等于青龙容器的全部资源。如需青龙容器级监控，后续可挂载 Docker Socket 只读接入。</div></div>
+  <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:15px">
+   <div class="panel"><div class="panelhead"><h2>内存明细</h2></div>
+    <div class="tablewrap"><table><tbody id="memTable"></tbody></table></div>
+   </div>
+   <div class="panel"><div class="panelhead"><h2>说明</h2></div>
+    <div class="muted small" style="line-height:2">数据为面板后端所在环境的资源，不等于青龙容器全部资源。页面停留期间每 5 秒自动刷新；如需青龙容器级监控，后续可挂载 Docker Socket 只读接入。</div>
+   </div>
+  </div>
  </section>
 
  <section class="view" id="settings">
@@ -210,12 +302,28 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
    </div>
   </div>
  </section>
+
+ <section class="view" id="beauty">
+  <div class="panel">
+   <div class="panelhead"><div><h2>界面美化</h2><div class="muted small">点击方案立即生效并自动保存（本机浏览器记忆）</div></div></div>
+   <div class="themeGrid" id="themeGrid"></div>
+   <div style="margin-top:22px">
+    <div class="ckrow"><input type="checkbox" id="ckFx" checked><label for="ckFx">背景光效（页面边角氛围光）</label></div>
+    <label class="f" style="margin-top:16px"><span>自定义背景图（URL，留空 = 不使用；叠加半透明遮罩保证可读性）</span>
+     <input class="input" id="bgUrl" placeholder="https://...jpg/png"></label>
+    <div style="display:flex;gap:10px">
+     <button class="btn primary" id="bgApply">应用背景</button>
+     <button class="btn" id="bgClear">清除背景</button>
+    </div>
+   </div>
+  </div>
+ </section>
 </main>
 </div>
 
 <div class="overlay" id="loginOverlay">
  <div class="box narrow">
-  <header><b>登录 QingLong Nexus</b></header>
+  <header><b>登录青龙运维</b></header>
   <div class="body">
    <label class="f"><span>账号</span><input class="input" id="loginUser" autocomplete="username"></label>
    <label class="f"><span>密码</span><input class="input" id="loginPwd" type="password" autocomplete="current-password"></label>
@@ -232,12 +340,59 @@ gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
  </div>
 </div>
 
+<div class="overlay" id="bucketOverlay">
+ <div class="box">
+  <header><div><b id="bkTitle">区间任务</b><div class="muted small" id="bkSub"></div></div><button class="btn" id="bkClose">关闭</button></header>
+  <div class="body">
+   <div class="filters" style="margin-bottom:12px">
+    <input class="input" id="bkSearch" placeholder="搜索任务名称 / 命令...">
+    <select class="input" id="bkCat"><option value="">全部分类</option></select>
+   </div>
+   <div class="tablewrap" style="max-height:52vh;overflow:auto">
+    <table><thead><tr><th>任务名称</th><th>状态</th><th>上次执行</th><th style="width:70px">操作</th></tr></thead>
+    <tbody id="bkRows"></tbody></table>
+   </div>
+   <div class="muted small" style="margin-top:10px" id="bkMeta"></div>
+  </div>
+ </div>
+</div>
+
 <script>
 const $=id=>document.getElementById(id);
-let tasks=[],logFiles=[],loginCb=null;
-const titles={overview:["数据总览","QingLong Nexus · 运维中心"],tasks:["任务管理","查看与操作青龙定时任务"],logs:["运行日志","查看任务执行输出"],system:["系统监控","面板后端资源使用情况"],settings:["连接设置","青龙连接与账号管理"]};
+let tasks=[],logFiles=[],loginCb=null,expandedDirs=new Set(),trendRange=86400,systemTimer=null;
+const titles={overview:["数据总览","青龙运维 · 运维中心"],tasks:["任务管理","查看与操作青龙定时任务"],logs:["日志管理","批量查看与清理任务日志"],system:["系统监控","面板后端资源使用情况"],settings:["连接设置","青龙连接与账号管理"],beauty:["界面美化","主题方案与背景设置"]};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+/* ---------- 主题 ---------- */
+const THEMES=[
+ {id:"aurora",name:"暗紫极光",desc:"默认 · Dark Plus",sw:["#9b7cff","#09090f","#171725"]},
+ {id:"ocean",name:"深海蓝调",desc:"冷色 · 科技感",sw:["#4cc3ff","#060d17","#11203a"]},
+ {id:"jade",name:"墨玉翡翠",desc:"沉稳 · 绿色焦点",sw:["#34d399","#070c0a","#122019"]},
+ {id:"sakura",name:"樱花夜粉",desc:"暖色 · 夜樱氛围",sw:["#ff7eb6","#120a12","#241726"]}
+];
+function applyTheme(id){
+ document.body.dataset.theme=id;
+ document.querySelectorAll(".themeCard").forEach(c=>c.classList.toggle("on",c.dataset.t===id));
+ localStorage.setItem("ql_theme",id);
+}
+function applyFx(on){document.body.classList.toggle("fx",on);localStorage.setItem("ql_fx",on?"1":"0")}
+function applyBg(url){
+ document.body.classList.toggle("bgimg",!!url);
+ document.body.style.backgroundImage=url?`linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.25)),url("${url.replace(/"/g,"")}")`:"";
+ localStorage.setItem("ql_bg",url||"");
+}
+function initBeauty(){
+ $("themeGrid").innerHTML=THEMES.map(t=>`<button class="themeCard" data-t="${t.id}"><span class="sw">${t.sw.map(c=>`<i style="background:${c}"></i>`).join("")}</span><b>${t.name}</b><span class="muted small">${t.desc}</span></button>`).join("");
+ document.querySelectorAll(".themeCard").forEach(c=>c.addEventListener("click",()=>applyTheme(c.dataset.t)));
+ applyTheme(localStorage.getItem("ql_theme")||"aurora");
+ const fx=localStorage.getItem("ql_fx")!=="0";$("ckFx").checked=fx;applyFx(fx);
+ $("ckFx").addEventListener("change",()=>applyFx($("ckFx").checked));
+ $("bgUrl").value=localStorage.getItem("ql_bg")||"";
+ $("bgApply").addEventListener("click",()=>applyBg($("bgUrl").value.trim()));
+ $("bgClear").addEventListener("click",()=>{$("bgUrl").value="";applyBg("")});
+}
+
+/* ---------- 基础 ---------- */
 function showLogin(cb){
  loginCb=cb||null;
  $("loginErr").textContent="";
@@ -277,6 +432,7 @@ function fmtDate(sec){
  return new Date(ms).toLocaleString("zh-CN",{hour12:false});
 }
 function fmtSize(b){return b>1048576?(b/1048576).toFixed(1)+" MB":b>1024?(b/1024).toFixed(1)+" KB":b+" B"}
+function catOf(t){return (t.labels&&t.labels[0])||"未分组"}
 
 function status(t){
  if(t.isDisabled===1)return '<span class="muted">● 已禁用</span>';
@@ -299,28 +455,66 @@ function render(){
  drawTasks();
 }
 
+/* ---------- 总览：分布图（可调区间 + 点击下钻） ---------- */
 function drawTrend(list){
- const buckets=[["6h 内",21600],["24h 内",86400],["3 天内",259200],["7 天内",604800],["7 天以上",Infinity],["从未执行",null]];
- const counts=new Array(buckets.length).fill(0);
+ const range=Number(trendRange),N=8,step=range/N;
+ const buckets=[];
+ for(let i=0;i<N;i++)buckets.push({lo:i*step,hi:(i+1)*step,label:rangeLabel(i*step,(i+1)*step),count:0});
+ buckets.push({lo:range,hi:Infinity,label:"更早",count:0});
+ buckets.push({lo:null,hi:null,label:"从未执行",count:0});
  for(const t of list){
-  if(!t.lastExecutionTime){counts[5]++;continue}
+  if(!t.lastExecutionTime){buckets[buckets.length-1].count++;continue}
   const age=ageSec(t);
-  const i=buckets.findIndex(([,lim])=>age<lim);
-  counts[i>=0?i:4]++;
+  const b=buckets.find(x=>x.lo!==null&&age>=x.lo&&age<x.hi);
+  if(b)b.count++;
  }
- const max=Math.max(...counts,1);
- const bw=64,gap=14,x0=12,base=150;
+ const max=Math.max(...buckets.map(b=>b.count),1);
+ const bw=58,gap=12,x0=10,base=168,W=640;
  let bars="",labels="",values="";
- buckets.forEach(([label],i)=>{
-  const x=x0+i*(bw+gap),h=Math.round(counts[i]/max*110);
-  const y=base-h;
-  bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="4" fill="${i===5?"#3a3450":"#9b7cff"}" opacity="${i===5?"0.9":"0.85"}"/>`;
-  labels+=`<text class="barlabel" x="${x+bw/2}" y="166" text-anchor="middle">${label}</text>`;
-  values+=`<text x="${x+bw/2}" y="${y-6}" text-anchor="middle" font-size="12" fill="#eeeef7">${counts[i]}</text>`;
+ buckets.forEach((b,i)=>{
+  const x=x0+i*(bw+gap),h=Math.round(b.count/max*118),y=base-h;
+  const dim=b.label==="从未执行";
+  bars+=`<rect class="bar" data-i="${i}" x="${x}" y="${y}" width="${bw}" height="${Math.max(h,2)}" rx="4" fill="${dim?"var(--muted)":"var(--accent)"}" opacity="${dim?0.45:0.85}"/>`;
+  labels+=`<text class="barlabel" x="${x+bw/2}" y="184" text-anchor="middle">${b.label}</text>`;
+  values+=`<text x="${x+bw/2}" y="${y-6}" text-anchor="middle" font-size="12" fill="var(--text)">${b.count}</text>`;
  });
  $("trendSvg").innerHTML=bars+labels+values;
 }
+function rangeLabel(lo,hi){
+ const f=s=>s>=86400?(s/86400)+"d":s>=3600?(s/3600)+"h":(s/60)+"m";
+ return f(lo)+"-"+f(hi);
+}
+function bucketTasks(b){
+ const enabled=tasks.filter(t=>t.isDisabled!==1);
+ if(b.lo===null)return enabled.filter(t=>!t.lastExecutionTime);
+ return enabled.filter(t=>t.lastExecutionTime&&ageSec(t)>=b.lo&&ageSec(t)<b.hi);
+}
+function openBucket(i){
+ const range=Number(trendRange),N=8,step=range/N;
+ let b;
+ if(i===N){b={lo:range,hi:Infinity,label:"更早"}}
+ else if(i===N+1){b={lo:null,hi:null,label:"从未执行"}}
+ else b={lo:i*step,hi:(i+1)*step,label:rangeLabel(i*step,(i+1)*step)};
+ $("bkTitle").textContent="执行区间："+b.label;
+ $("bkSub").textContent="区间内上次执行的任务（不含禁用）";
+ $("bkSearch").value="";
+ const list=bucketTasks(b);
+ const cats=[...new Set(list.map(catOf))].sort();
+ $("bkCat").innerHTML='<option value="">全部分类</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+ $("bkCat").dataset.mode=b.lo===null?"never":String(b.lo);
+ $("bkCat").dataset.hi=b.hi===Infinity?"inf":String(b.hi);
+ renderBucket(list);
+ $("bucketOverlay").classList.add("show");
+}
+function renderBucket(list){
+ const q=$("bkSearch").value.toLowerCase(),cat=$("bkCat").value;
+ const rows=list.filter(t=>(String(t.name)+String(t.command)).toLowerCase().includes(q)&&(!cat||catOf(t)===cat))
+  .sort((a,b)=>(b.lastExecutionTime||0)-(a.lastExecutionTime||0));
+ $("bkRows").innerHTML=rows.map(t=>`<tr><td><b>${esc(t.name)}</b><div class="small muted" style="white-space:normal">${esc(t.command)}</div></td><td>${status(t)}</td><td class="muted">${fmtRel(t.lastExecutionTime)}</td><td><button class="btn mini" data-act="blog" data-path="${esc(t.logPath)}" data-name="${esc(t.name)}">日志</button></td></tr>`).join("")||'<tr><td colspan="4" class="empty">该区间没有任务</td></tr>';
+ $("bkMeta").textContent=`共 ${rows.length} 个任务`;
+}
 
+/* ---------- 任务管理 ---------- */
 function drawTasks(){
  const q=$("search").value.toLowerCase(),f=$("filter").value;
  const list=tasks.filter(t=>{
@@ -336,7 +530,7 @@ function drawTasks(){
 }
 
 function setConn(ok,msg){
- $("conn").textContent=ok?"已连接":(msg?"连接失败":"连接失败");
+ $("conn").textContent=ok?"已连接":"连接失败";
  $("connDot").className="dot"+(ok?"":" red");
 }
 
@@ -382,20 +576,65 @@ async function loadAuth(){
  }catch(e){return null}
 }
 
+/* ---------- 日志管理：目录列表 + 多选 + 批量删除 ---------- */
+function dirAgg(){
+ const map=new Map();
+ for(const f of logFiles){
+  let d=map.get(f.dir);
+  if(!d){d={name:f.dir,files:[],size:0,latest:0};map.set(f.dir,d)}
+  d.files.push(f);d.size+=f.size||0;d.latest=Math.max(d.latest,f.createTime||0);
+ }
+ return [...map.values()].sort((a,b)=>b.latest-a.latest);
+}
+function selDirs(){return [...document.querySelectorAll("#dirRows input[data-dir]:checked")].map(c=>c.dataset.dir)}
+function selFiles(){return [...document.querySelectorAll("#dirRows input[data-fdir]:checked")].map(c=>({dir:c.dataset.fdir,name:c.dataset.fname}))}
+
+function drawDirs(){
+ const q=$("logSearch").value.toLowerCase();
+ const dirs=dirAgg().filter(d=>d.name.toLowerCase().includes(q));
+ $("logMeta").textContent=`共 ${dirAgg().length} 个任务目录、${logFiles.length} 个日志文件`;
+ if(!dirs.length){$("dirRows").innerHTML='<tr><td colspan="6" class="empty">没有匹配目录</td></tr>';return}
+ let html="";
+ for(const d of dirs){
+  const open=expandedDirs.has(d.name);
+  html+=`<tr class="dirrow"><td><input type="checkbox" data-dir="${esc(d.name)}"></td><td>📁 ${esc(d.name)}</td><td class="muted">${d.files.length}</td><td class="muted">${fmtSize(d.size)}</td><td class="muted">${fmtRel(d.latest/1000)}</td><td><button class="btn mini" data-act="exp" data-dir="${esc(d.name)}">${open?"收起":"展开"}</button></td></tr>`;
+  if(open){
+   const files=[...d.files].sort((a,b)=>b.createTime-a.createTime);
+   html+=files.map(f=>`<tr class="filechild"><td><input type="checkbox" data-fdir="${esc(d.name)}" data-fname="${esc(f.name)}"></td><td>📄 ${esc(f.name)}</td><td class="muted">${fmtSize(f.size)}</td><td class="muted">${fmtDate(f.createTime/1000)}</td><td colspan="2"><button class="btn mini" data-act="view" data-path="${esc(d.name+"/"+f.name)}">查看</button></td></tr>`).join("");
+  }
+ }
+ $("dirRows").innerHTML=html;
+}
+
 async function loadLogs(){
  try{
   const result=await api("/api/logs");
   logFiles=result.data||[];
-  const dirs=[...new Set(logFiles.map(f=>f.dir))];
-  $("logDir").innerHTML='<option value="">选择任务目录...</option>'+dirs.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("");
-  $("logSelect").innerHTML='<option value="">先选择目录，再选日志文件</option>';
-  $("logMeta").textContent=`共 ${result.dirCount} 个任务目录、${result.total} 个日志文件`;
- }catch(e){if(e.message!=="需要登录")$("logText").textContent=e.message}
+  drawDirs();
+ }catch(e){if(e.message!=="需要登录")$("logMeta").textContent="加载失败："+e.message}
 }
 
-function fillFileSelect(dir){
- const files=logFiles.filter(f=>f.dir===dir).sort((a,b)=>b.createTime-a.createTime);
- $("logSelect").innerHTML='<option value="">选择日志文件（按时间倒序）</option>'+files.map(f=>`<option value="${esc(f.dir+"/"+f.name)}">${esc(f.name)} · ${fmtSize(f.size)}</option>`).join("");
+async function deleteSelected(){
+ const ds=selDirs(),fs=selFiles();
+ const n=ds.length+fs.length;
+ if(!n)return alert("先勾选要删除的目录或日志文件");
+ const parts=[];
+ if(ds.length)parts.push(`目录 ${ds.length} 个`);
+ if(fs.length)parts.push(`日志文件 ${fs.length} 个`);
+ if(!confirm(`确定删除 ${parts.join(" + ")}？\n删除后不可恢复（任务下次运行会自动重建目录）。`))return;
+ const items=[
+  ...ds.map(d=>({filename:d,path:""})),
+  ...fs.map(f=>({filename:f.name,path:f.dir}))
+ ];
+ $("delSel").disabled=true;
+ try{
+  const r=await api("/api/logs/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items})});
+  const fail=(r.results||[]).filter(x=>!x.ok);
+  if(fail.length)alert(`删除完成：成功 ${r.deleted} 个，失败 ${fail.length} 个\n`+fail.map(x=>x.target+"："+x.message).join("\n"));
+  expandedDirs.clear();
+  await loadLogs();
+ }catch(e){if(e.message!=="需要登录")alert("删除失败："+e.message)}
+ $("delSel").disabled=false;
 }
 
 async function openLog(path,title){
@@ -409,42 +648,100 @@ async function openLog(path,title){
  }catch(e){$("ovText").textContent="读取失败："+e.message}
 }
 
+/* ---------- 系统监控 ---------- */
+function barCls(p){return p>=90?"hot":p>=70?"warn":""}
 async function loadSystem(){
  try{
   const d=(await api("/api/system")).data;
-  $("cpu").textContent=d.cpuCount;
-  $("cpuModel").textContent=d.cpuModel||"";
-  $("mem").textContent=d.memoryPercent+"%";
+  const memP=d.memoryPercent;
+  $("mem").textContent=memP+"%";
   $("memDetail").textContent=Math.round(d.memoryUsed/1073741824*10)/10+" / "+Math.round(d.memoryTotal/1073741824*10)/10+" GB";
-  const h=Math.floor(d.uptime/3600),m=Math.floor(d.uptime%3600/60);
-  $("uptime").textContent=h>0?h+"h "+m+"m":m+"m";
+  $("memBar").style.width=Math.min(memP,100)+"%";$("memBar").className=barCls(memP);
+  const cores=d.cpuCount||1,load1=d.loadavg?.[0]||0;
+  const loadP=Math.round(load1/cores*100);
+  $("load").textContent=load1.toFixed(2);
+  $("load").className="num"+(loadP>=90?" red":loadP>=70?" amber":"");
+  $("cpuModel").textContent=(d.cpuCount||"?")+" 核 · "+(d.cpuModel||"").replace(/\(R\)|\(TM\)|CPU|@.*$/gi,"").trim().slice(0,36);
+  $("loadBar").style.width=Math.min(loadP,100)+"%";$("loadBar").className=barCls(loadP);
+  const up=d.uptime,D=Math.floor(up/86400),H=Math.floor(up%86400/3600),M=Math.floor(up%3600/60);
+  $("uptime").textContent=D>0?D+"d "+H+"h":H>0?H+"h "+M+"m":M+"m";
+  $("loadavgDetail").textContent=`1m ${load1.toFixed(2)} / 5m ${(d.loadavg?.[1]||0).toFixed(2)} / 15m ${(d.loadavg?.[2]||0).toFixed(2)}`;
   $("platform").textContent=d.platform+"-"+d.arch;
-  $("platform").style.fontSize="16px";
   $("hostname").textContent=d.hostname||"";
+  $("memTable").innerHTML=`
+   <tr><td class="muted">总量</td><td>${(d.memoryTotal/1073741824).toFixed(2)} GB</td></tr>
+   <tr><td class="muted">已用</td><td>${(d.memoryUsed/1073741824).toFixed(2)} GB（${memP}%）</td></tr>
+   <tr><td class="muted">空闲</td><td>${(d.memoryFree/1073741824).toFixed(2)} GB</td></tr>
+   <tr><td class="muted">核心数</td><td>${d.cpuCount}</td></tr>`;
  }catch(e){}
+}
+function setSystemTimer(on){
+ if(systemTimer){clearInterval(systemTimer);systemTimer=null}
+ if(on){loadSystem();systemTimer=setInterval(()=>{if(!document.hidden)loadSystem()},5000)}
 }
 
 function page(name){
  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id===name));
  document.querySelectorAll("[data-page]").forEach(x=>x.classList.toggle("active",x.dataset.page===name));
  $("title").textContent=titles[name][0];$("subtitle").textContent=titles[name][1];
+ setSystemTimer(name==="system");
  if(name==="logs"&&!logFiles.length)loadLogs();
- if(name==="system")loadSystem();
  if(name==="settings"){loadSettings();loadHealth();loadAuth()}
 }
 
 async function refreshAll(){
  loadTasks();
  if($("system").classList.contains("active"))loadSystem();
+ if($("logs").classList.contains("active"))loadLogs();
 }
 
+/* ---------- 事件绑定 ---------- */
 document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>page(b.dataset.page)));
 $("search").addEventListener("input",drawTasks);
 $("filter").addEventListener("change",drawTasks);
 $("refresh").addEventListener("click",refreshAll);
 $("reloadLogs").addEventListener("click",loadLogs);
-$("logDir").addEventListener("change",()=>fillFileSelect($("logDir").value));
-$("logSelect").addEventListener("change",()=>{const v=$("logSelect").value;if(!v)return;openLog(v)});
+$("logSearch").addEventListener("input",drawDirs);
+$("delSel").addEventListener("click",deleteSelected);
+$("ckAllDirs").addEventListener("change",e=>{
+ document.querySelectorAll("#dirRows input[data-dir]").forEach(c=>c.checked=e.target.checked);
+});
+$("rangeSeg").addEventListener("click",e=>{
+ const b=e.target.closest("button[data-r]");if(!b)return;
+ document.querySelectorAll("#rangeSeg button").forEach(x=>x.classList.toggle("on",x===b));
+ trendRange=b.dataset.r;
+ drawTrend(tasks.filter(t=>t.isDisabled!==1));
+});
+$("trendSvg").addEventListener("click",e=>{
+ const r=e.target.closest("rect.bar");
+ if(r)openBucket(Number(r.dataset.i));
+});
+$("bkClose").addEventListener("click",()=>$("bucketOverlay").classList.remove("show"));
+$("bucketOverlay").addEventListener("click",e=>{if(e.target===$("bucketOverlay"))$("bucketOverlay").classList.remove("show")});
+$("bkSearch").addEventListener("input",()=>{
+ // 复用当前区间：直接按当前过滤条件重查
+ const mode=$("bkCat").dataset.mode;
+ const enabled=tasks.filter(t=>t.isDisabled!==1);
+ let list;
+ if(mode==="never")list=enabled.filter(t=>!t.lastExecutionTime);
+ else{const lo=Number(mode),hi=$("bkCat").dataset.hi==="inf"?Infinity:Number($("bkCat").dataset.hi);list=enabled.filter(t=>t.lastExecutionTime&&ageSec(t)>=lo&&ageSec(t)<hi)}
+ renderBucket(list);
+});
+$("bkCat").addEventListener("change",()=>$("bkSearch").dispatchEvent(new Event("input")));
+$("bkRows").addEventListener("click",e=>{
+ const b=e.target.closest("button[data-act='blog']");
+ if(b&&b.dataset.path)openLog(b.dataset.path,b.dataset.name);
+});
+$("dirRows").addEventListener("click",async e=>{
+ const b=e.target.closest("button[data-act]");
+ if(!b)return;
+ if(b.dataset.act==="exp"){
+  const d=b.dataset.dir;
+  expandedDirs.has(d)?expandedDirs.delete(d):expandedDirs.add(d);
+  drawDirs();
+ }
+ if(b.dataset.act==="view")openLog(b.dataset.path);
+});
 
 $("taskRows").addEventListener("click",async e=>{
  const b=e.target.closest("button[data-act]");
@@ -466,7 +763,7 @@ $("taskRows").addEventListener("click",async e=>{
 $("ovClose").addEventListener("click",()=>$("logOverlay").classList.remove("show"));
 $("logOverlay").addEventListener("click",e=>{if(e.target===$("logOverlay"))$("logOverlay").classList.remove("show")});
 
-// ---------- 登录 ----------
+/* ---------- 登录 ---------- */
 async function doLogin(){
  const user=$("loginUser").value.trim(),password=$("loginPwd").value;
  $("loginErr").textContent="";
@@ -491,7 +788,7 @@ $("logout").addEventListener("click",async()=>{
  showLogin();
 });
 
-// ---------- 连接设置 ----------
+/* ---------- 连接设置 ---------- */
 $("cfgSave").addEventListener("click",async()=>{
  $("cfgErr").textContent="";
  try{
@@ -514,8 +811,9 @@ $("cfgTest").addEventListener("click",async()=>{
 
 setInterval(()=>{if(!document.hidden)loadTasks()},30000);
 
-// 启动：先问登录状态，需要登录则弹窗，登录成功后再拉数据
+/* ---------- 启动 ---------- */
 (async function boot(){
+ initBeauty();
  try{
   const a=await loadAuth();
   if(a&&a.required&&!a.ok){showLogin();return}

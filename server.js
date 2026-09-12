@@ -323,6 +323,39 @@ app.get("/api/logs/detail", async (req, res) => {
   }
 });
 
+// 批量删除日志（目录或文件混选）：items=[{filename, path}]
+// 目录：filename=目录名, path=''；文件：filename=日志文件名, path=目录名
+app.post("/api/logs/delete", async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 300) : [];
+    if (!items.length) return res.status(400).json({ code: 400, message: "没有要删除的目标" });
+    const bad = (s) => /(^|\/|\\)\.\.?(\/|\\|$)/.test(s) || s.includes("\\");
+    const results = [];
+    for (const it of items) {
+      const filename = String(it?.filename || "");
+      const dir = String(it?.path || "");
+      const full = dir ? `${dir}/${filename}` : filename;
+      if (!/^[^/\\]+$/.test(filename) || bad(filename) || bad(dir)) {
+        results.push({ target: full, ok: false, message: "非法路径" });
+        continue;
+      }
+      try {
+        await qlRequest("/open/logs", {
+          method: "DELETE",
+          body: JSON.stringify({ filename, path: dir })
+        });
+        results.push({ target: full, ok: true });
+      } catch (e) {
+        results.push({ target: full, ok: false, message: e.message });
+      }
+    }
+    const failed = results.filter((r) => !r.ok).length;
+    res.json({ code: 200, deleted: results.length - failed, failed, results });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 // ---------- 任务操作（写接口） ----------
 app.put("/api/tasks/:id/run", async (req, res) => {
   try {
