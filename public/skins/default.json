@@ -1,0 +1,11 @@
+{
+  "id": "default",
+  "name": "纯净原版",
+  "desc": "无壁纸 · 原始观感",
+  "wallpaper": "",
+  "mask": 0.82,
+  "cardAlpha": 1,
+  "immersive": false,
+  "blur": 12,
+  "accent": ""
+}

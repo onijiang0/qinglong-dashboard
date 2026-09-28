@@ -1,0 +1,12 @@
+{
+  "id": "sakura-night",
+  "name": "夜樱流光",
+  "desc": "粉调氛围 · 强调色联动",
+  "wallpaper": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1920&q=70",
+  "mask": 0.7,
+  "cardAlpha": 0.38,
+  "immersive": true,
+  "blur": 18,
+  "accent": "#ff7eb6",
+  "theme": "sakura"
+}

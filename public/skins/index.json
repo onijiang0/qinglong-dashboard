@@ -1,0 +1,9 @@
+{
+  "_comment": "皮肤清单。新增皮肤 = 往 skins/ 丢一个 json，再在这里加一行。无需改任何 JS。",
+  "skins": [
+    "default",
+    "midnight",
+    "frost",
+    "sakura-night"
+  ]
+}

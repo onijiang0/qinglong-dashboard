@@ -1,0 +1,11 @@
+{
+  "id": "midnight",
+  "name": "午夜沉浸",
+  "desc": "深蓝星野 · 卡片半透",
+  "wallpaper": "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&q=70",
+  "mask": 0.62,
+  "cardAlpha": 0.42,
+  "immersive": true,
+  "blur": 16,
+  "accent": ""
+}
