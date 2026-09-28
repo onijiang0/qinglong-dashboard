@@ -158,7 +158,10 @@ background:var(--panel2)}
 }
 </style>
 </head>
-<body class="fx" data-theme="aurora">
+<!-- data-scheme 显式声明配色方案（组件用），必须写：
+     不写就会跟随系统 prefers-color-scheme，而部分系统/无头浏览器默认报 light，
+     会把深色面板套上浅色玻璃变量，出现"浅底浅字"看不清。 -->
+<body class="fx" data-theme="aurora" data-scheme="dark">
 <div class="app">
 <aside class="side">
  <div class="logo">
@@ -193,12 +196,8 @@ background:var(--panel2)}
  </header>
 
  <section class="view active" id="overview">
-  <div class="cards">
-   <div class="card"><div class="label">任务总数</div><div class="num" id="total">—</div><div class="small muted">定时任务</div></div>
-   <div class="card"><div class="label">运行中</div><div class="num purple" id="running">—</div><div class="small muted">状态：运行中</div></div>
-   <div class="card"><div class="label">24h 内执行过</div><div class="num green" id="recent24">—</div><div class="small muted">按上次执行时间</div></div>
-   <div class="card"><div class="label">已禁用</div><div class="num amber" id="disabledN">—</div><div class="small muted">未参与调度</div></div>
-  </div>
+  <!-- 统计卡片：由 stat-cards.js（StatCards）渲染，挂载点替换原 .cards/.card 结构 -->
+  <div id="statCards"></div>
   <div class="panel" style="margin-top:15px">
    <div class="panelhead">
     <div><h2 style="display:flex;align-items:center;gap:10px">执行时间分布 <span class="badge" id="trendEnabled" style="position:static;transform:none"></span></h2><div class="muted small">已启用任务 · 点击柱条查看区间内运行的任务</div></div>
@@ -229,7 +228,8 @@ background:var(--panel2)}
   <div class="panel">
    <div class="panelhead"><div><h2>任务管理</h2><div class="muted small" id="taskCount">共 — 个任务</div></div></div>
    <div class="filters"><input class="input" id="search" placeholder="搜索任务名称 / 命令..."><select class="input" id="filter"><option value="all">全部状态</option><option value="running">运行中</option><option value="idle">空闲</option><option value="queued">队列中</option><option value="disabled">已禁用</option></select></div>
-   <div class="tablewrap"><table><thead><tr><th>任务</th><th>状态</th><th>定时规则</th><th>上次执行</th><th>操作</th></tr></thead><tbody id="taskRows"><tr><td colspan="5" class="empty">加载中...</td></tr></tbody></table></div>
+   <!-- 任务列表：由 virtual-task-table.js（VirtualTaskTable）渲染，表头/空态/滚动条均由组件自带 -->
+   <div id="taskTable"></div>
   </div>
  </section>
 
@@ -338,7 +338,8 @@ background:var(--panel2)}
 <div class="overlay" id="logOverlay">
  <div class="box">
   <header><div><b id="ovTitle">日志</b><div class="muted small" id="ovSub"></div></div><button class="btn" id="ovClose">关闭</button></header>
-  <pre id="ovText">加载中...</pre>
+  <!-- 日志查看器：由 log-viewer.js（LogViewer）渲染，含行号/虚拟滚动/自动滚底 -->
+  <div id="logView"></div>
  </div>
 </div>
 
@@ -359,7 +360,12 @@ background:var(--panel2)}
  </div>
 </div>
 
-<script>
+<script type="module">
+import { VirtualTaskTable } from "./components/virtual-task-table.js";
+import { StatCards } from "./components/stat-cards.js";
+import { LogViewer } from "./components/log-viewer.js";
+import { Poller } from "./components/poller.js";
+
 const $=id=>document.getElementById(id);
 let tasks=[],logFiles=[],loginCb=null,expandedDirs=new Set(),trendRange=86400,systemTimer=null;
 const titles={overview:["数据总览","青龙运维 · 运维中心"],tasks:["任务管理","查看与操作青龙定时任务"],logs:["日志管理","批量查看与清理任务日志"],system:["系统监控","面板后端资源使用情况"],settings:["连接设置","青龙连接与账号管理"],beauty:["界面美化","主题方案与背景设置"]};
@@ -393,6 +399,18 @@ function initBeauty(){
  $("bgApply").addEventListener("click",()=>applyBg($("bgUrl").value.trim()));
  $("bgClear").addEventListener("click",()=>{$("bgUrl").value="";applyBg("")});
 }
+
+/* ---------- 组件实例 ---------- */
+/* 三个 UI 组件在脚本开头一次性创建（挂载点此时已存在，因为 module 脚本天然 defer） */
+
+// 统计卡片：只建一次 DOM，后续用 update() 原地改数字（带滚动动画），不重建
+const cards=new StatCards({mount:$("statCards")});
+
+// 任务列表：虚拟滚动，DOM 常驻行数与数据量解耦
+let vt=null; // 延后到 DOMContentLoaded 后创建（需要容器有高度才能算可视行数）
+
+// 日志查看器：行级虚拟化 + 自动滚底
+let lv=null;
 
 /* ---------- 基础 ---------- */
 function showLogin(cb){
@@ -446,11 +464,22 @@ function ageSec(t){return t.lastExecutionTime?(Date.now()/1000-t.lastExecutionTi
 
 function render(){
  const enabled=tasks.filter(t=>t.isDisabled!==1);
- $("total").textContent=tasks.length;
- $("running").textContent=tasks.filter(t=>t.isDisabled!==1&&t.status===0).length;
- $("recent24").textContent=enabled.filter(t=>ageSec(t)<86400).length;
- $("disabledN").textContent=tasks.filter(t=>t.isDisabled===1).length;
- $("taskCount").textContent=`共 ${tasks.length} 个任务，启用 ${enabled.length} 个`;
+ const nTotal=tasks.length;
+ const nRunning=tasks.filter(t=>t.isDisabled!==1&&t.status===0).length;
+ const nRecent24=enabled.filter(t=>ageSec(t)<86400).length;
+ const nDisabled=tasks.filter(t=>t.isDisabled===1).length;
+ $("taskCount").textContent=`共 ${nTotal} 个任务，启用 ${enabled.length} 个`;
+
+ // 统计卡片：原地更新数字（带滚动动画），不重建 DOM
+ cards.setData([
+  {key:"total",   label:"任务总数",     value:nTotal,     hint:"定时任务",       tone:"accent", icon:"▦"},
+  {key:"running", label:"运行中",       value:nRunning,   hint:"状态：运行中",   tone:"green",  icon:"▶", pulse:nRunning>0},
+  {key:"recent24",label:"24h 内执行过", value:nRecent24,  hint:"按上次执行时间", tone:"accent", icon:"◔",
+   progress:nTotal?nRecent24/nTotal:0},
+  {key:"disabled",label:"已禁用",       value:nDisabled,  hint:"未参与调度",     tone:"amber",  icon:"⏸",
+   progress:nTotal?nDisabled/nTotal:0}
+ ]);
+
  drawTrend(enabled);
  const recent=[...tasks].sort((a,b)=>(b.lastExecutionTime||0)-(a.lastExecutionTime||0)).slice(0,8);
  $("recent").innerHTML=recent.map(t=>`<tr><td><b>${esc(t.name)}</b></td><td>${status(t)}</td><td class="muted">${esc(t.schedule)}</td><td class="muted">${fmtRel(t.lastExecutionTime)}</td></tr>`).join("")||'<tr><td colspan="4" class="empty">暂无任务</td></tr>';
@@ -544,18 +573,33 @@ function renderBucket(list){
 }
 
 /* ---------- 任务管理 ---------- */
+/* 虚拟滚动版：过滤与渲染都在组件内完成（过滤做单遍循环，滚动只画可视窗口）。
+   原来的全量 innerHTML 重建已移除 —— 那是 500+ 条时的主要卡顿来源。 */
 function drawTasks(){
- const q=$("search").value.toLowerCase(),f=$("filter").value;
- const list=tasks.filter(t=>{
-  const hit=String(t.name||"").toLowerCase().includes(q)||String(t.command||"").toLowerCase().includes(q);
-  if(!hit)return false;
-  if(f==="all")return true;
-  if(f==="disabled")return t.isDisabled===1;
-  if(f==="running")return t.isDisabled!==1&&t.status===0;
-  if(f==="queued")return t.isDisabled!==1&&t.status===3;
-  return t.isDisabled!==1&&t.status!==0&&t.status!==3;
+ if(!vt)return;
+ vt.setData(tasks);
+}
+
+/* 创建虚拟表格：需要容器已有确定高度，所以放在 DOMContentLoaded 之后 */
+function initTaskTable(){
+ vt=new VirtualTaskTable({
+  mount:$("taskTable"),
+  onAction:async(act,task)=>{
+   if(act==="log"){
+    if(task.logPath)return openLog(task.logPath,task.name);
+    return page("logs");
+   }
+   if(act==="run"&&!confirm(`确定手动执行「${task.name}」？该任务会真实运行。`))return;
+   try{
+    await api(`/api/tasks/${task.id}/${act}`,{method:"PUT"});
+    setTimeout(loadTasks,1500);
+   }catch(e){if(e.message!=="需要登录")alert(e.message)}
+  }
  });
- $("taskRows").innerHTML=list.map(t=>`<tr><td style="max-width:340px;overflow:hidden;text-overflow:ellipsis"><b>${esc(t.name)}</b><div class="small muted" style="white-space:normal">${esc(t.command)}</div></td><td>${status(t)}</td><td class="muted">${esc(t.schedule)}</td><td class="muted" title="${esc(fmtDate(t.lastExecutionTime))}">${fmtRel(t.lastExecutionTime)}</td><td><button class="btn mini" data-act="log" data-id="${t.id}">日志</button> <button class="btn mini" data-act="run" data-id="${t.id}">▶ 执行</button> <button class="btn mini" data-act="${t.isDisabled===1?"enable":"disable"}" data-id="${t.id}">${t.isDisabled===1?"启用":"禁用"}</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">没有匹配任务</td></tr>';
+ // 搜索框：setQuery 内置 180ms 防抖，不再每敲一个字符全量重排
+ $("search").addEventListener("input",e=>vt.setQuery(e.target.value));
+ $("filter").addEventListener("change",e=>vt.setFilter(e.target.value));
+ if(tasks.length)vt.setData(tasks);
 }
 
 function setConn(ok,msg){
@@ -670,11 +714,14 @@ async function openLog(path,title){
  $("logOverlay").classList.add("show");
  $("ovTitle").textContent=title||path;
  $("ovSub").textContent=path;
- $("ovText").textContent="读取中...";
+ if(!lv)lv=new LogViewer({mount:$("logView"),title:title||path});
+ lv.setContent("读取中...");
  try{
   const r=await api("/api/logs/detail?file="+encodeURIComponent(path));
-  $("ovText").textContent=r.data||"（日志内容为空）";
- }catch(e){$("ovText").textContent="读取失败："+e.message}
+  // 整份灌入后自动滚到底（组件内 rAF 已合并）
+  lv.setContent(r.data||"（日志内容为空）",title||path);
+  lv.scrollToBottom(true);
+ }catch(e){lv.setContent("读取失败："+e.message,title||path)}
 }
 
 /* ---------- 系统监控 ---------- */
@@ -724,6 +771,9 @@ function page(name){
  setSystemTimer(name==="system");
  if(name==="logs"&&!logFiles.length)loadLogs();
  if(name==="settings"){loadSettings();loadHealth();loadAuth()}
+ // 虚拟表格在隐藏状态下容器高度为 0，算不出可视行数；进入任务页必须强制重排一次。
+ // 虽然 ResizeObserver 多数情况下也会兜住，但显式调用不依赖它的触发时机，更稳。
+ if(name==="tasks"&&vt)requestAnimationFrame(()=>vt.refresh());
 }
 
 async function refreshAll(){
@@ -734,8 +784,7 @@ async function refreshAll(){
 
 /* ---------- 事件绑定 ---------- */
 document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>page(b.dataset.page)));
-$("search").addEventListener("input",drawTasks);
-$("filter").addEventListener("change",drawTasks);
+// 搜索/筛选的监听已移到 initTaskTable() 内部（绑定到虚拟表格实例）
 $("refresh").addEventListener("click",refreshAll);
 $("reloadLogs").addEventListener("click",loadLogs);
 $("logSearch").addEventListener("input",drawDirs);
@@ -785,22 +834,8 @@ $("dirRows").addEventListener("click",async e=>{
  if(b.dataset.act==="view")openLog(b.dataset.path);
 });
 
-$("taskRows").addEventListener("click",async e=>{
- const b=e.target.closest("button[data-act]");
- if(!b)return;
- const id=b.dataset.id,act=b.dataset.act;
- const t=tasks.find(x=>String(x.id)===String(id));
- if(act==="log"){
-  if(t&&t.logPath)return openLog(t.logPath,t.name);
-  if(t)return page("logs");
-  return;
- }
- if(act==="run"&&!confirm(`确定手动执行「${t?t.name:id}」？该任务会真实运行。`))return;
- try{
-  await api(`/api/tasks/${id}/${act}`,{method:"PUT"});
-  setTimeout(loadTasks,1500);
- }catch(e){if(e.message!=="需要登录")alert(e.message)}
-});
+// 任务行的操作（日志/执行/启停）改由 VirtualTaskTable 的 onAction 回调处理，
+// 组件内部用事件委托只绑一次，行节点再多也不增加监听器。
 
 $("ovClose").addEventListener("click",()=>$("logOverlay").classList.remove("show"));
 $("logOverlay").addEventListener("click",e=>{if(e.target===$("logOverlay"))$("logOverlay").classList.remove("show")});
@@ -851,15 +886,43 @@ $("cfgTest").addEventListener("click",async()=>{
  }catch(e){$("cfgErr").style.color="var(--red)";$("cfgErr").textContent=e.message}
 });
 
-setInterval(()=>{if(!document.hidden)loadTasks()},30000);
+/* ---------- 轮询（退避 + 隐藏暂停 + 指纹去重） ----------
+   替代原来的 setInterval(()=>{if(!document.hidden)loadTasks()},30000)：
+   - 页面隐藏时完全停发请求，回前台立即补拉一次（原实现是"空转等待下一次 tick"）
+   - 连续失败走指数退避（30s → 54s → 97s…上限 5 分钟），不刷屏也不放弃
+   - 数据未变化时跳过整个渲染链路（指纹只取驱动 UI 的 4 个字段，不做全量序列化）
+   - jitter 抖动避免多标签页同时打同一接口
+   注：tasksPoller 在 boot() 里启动，且指纹基于 tasks 数组本身。 */
+let tasksPoller=null;
 
 /* ---------- 启动 ---------- */
 (async function boot(){
  initBeauty();
+ // 组件挂载：需要容器已有确定尺寸（尤其是虚拟列表要算可视行数）
+ initTaskTable();
  try{
   const a=await loadAuth();
   if(a&&a.required&&!a.ok){showLogin();return}
-  loadTasks();loadHealth();
+  await loadTasks();
+  loadHealth();
+  // 首拉完成后启动轮询：fetcher 直接复用 loadTasks 的取数逻辑
+  tasksPoller=new Poller({
+   interval:30000,
+   fetcher:()=>api("/api/tasks"),
+   onData:(result,meta)=>{
+    setConn(true);
+    // meta.changed 为 false 时连 setData 都不调用，彻底跳过渲染
+    if(!meta.changed)return;
+    tasks=result.data||[];
+    render();
+   },
+   onError:(e,meta)=>{
+    if(e.message==="需要登录")return;
+    setConn(false,e.message);
+    console.warn(`[tasks] 第 ${meta.failures} 次失败，下次 ${(meta.nextInterval/1000)|0}s 后重试`);
+   }
+  });
+  tasksPoller.start();
  }catch(e){}
 })();
 </script>
