@@ -39,18 +39,92 @@ const CSS = `
   background:var(--sc-bg);
   border:1px solid var(--sc-brd);
   box-shadow:var(--sc-shadow);
-  backdrop-filter:blur(14px) saturate(150%);
-  -webkit-backdrop-filter:blur(14px) saturate(150%);
+  backdrop-filter:blur(var(--skin-blur,14px)) saturate(150%);
+  -webkit-backdrop-filter:blur(var(--skin-blur,14px)) saturate(150%);
   transition:transform .18s cubic-bezier(.2,.7,.3,1),
-             box-shadow .18s,border-color .18s}
+             box-shadow .18s,border-color .18s,background-color .3s ease}
+
+/* 皮肤联动：--sc-skin-rgb / --sc-skin-alpha / --sc-xp 由 index.html 注入。
+   接进项目后自动跟随沉浸模式；没有皮肤系统时保持组件自带的 --sc-bg 观感。
+
+   ⚠️ 非沉浸态（--sc-xp = 0）不能用「很淡的白色蒙层」当卡片底！
+   实测：白壁纸 + 遮罩 82% 时，rgba(255,255,255,0.043) 的卡片底合成出来是
+   灰度 62 —— 此时 --muted 只有 3.51:1，低于 AA。（因为卡片几乎是透明的，
+   透出来的是壁纸，白色托不住浅灰文字。）
+   所以：非沉浸态改用「主题面板色 @ card 不透明度」，让它成为真正的实心表面；
+   进入沉浸态再淡出为白色玻璃。用一个 white 不透明度变量做不到两件事，
+   因此这里分成两条规则，由 --sc-xp 是否 > 0 来切换观感。 */
+.sc-card[data-skin] {
+  background:rgb(var(--sc-skin-rgb) / var(--sc-skin-alpha));
+}
+/* 非沉浸：实心面板色（用主题的 panel 三元组，与页面 .card 同源观感）。
+   不透明度跟随 --card-alpha，与页面其它卡片保持一致（默认 1 = 完全不透明），
+   这样非沉浸态下它是一块真正的实心表面，浅灰文字有足够底气。
+   ⚠️ 不要写死成 .92 之类的常量：那会在主题把 --card-alpha 调低时与页面脱节。 */
+.sc-card[data-skin]:not([data-immersive]) {
+  background:rgb(var(--panel-rgb,17 17 27) / var(--card-alpha,1));
+}
+/* 沉浸：白色玻璃，不透明度由 --sc-skin-alpha 控制 */
+.sc-card[data-skin][data-immersive] {
+  background:rgb(var(--sc-skin-rgb) / var(--sc-skin-alpha));
+}
 
 /* 顶边高光：一条 1px 的渐变线，是"玻璃"感的关键，纯色块没有这个 */
 .sc-card::before{content:"";position:absolute;top:0;left:12px;right:12px;height:1px;
   background:linear-gradient(90deg,transparent,var(--sc-hi) 22%,var(--sc-hi) 78%,transparent);
-  opacity:.9;pointer-events:none}
+  opacity:.9;pointer-events:none;z-index:1}
 
-/* 角落氛围光晕（跟随 tone 变色） */
-.sc-card::after{content:"";position:absolute;z-index:-1;
+/* ── 「透明程度」统一口径 ──
+   --sc-xp 由 index.html 的皮肤 onChange 注入：1 = 全透，0 = 实心。
+   所有联动公式（面纱强度、文字提亮）都基于这一个变量，
+   组件不自己去反推 alpha 的语义 —— 之前踩过的坑就是各处对
+   「0.045 到底算实心还是算透明」理解不一致，导致实心卡片被压成暗块。
+   单独使用本组件（没有皮肤系统）时，--sc-xp 回退为 0 = 实心，观感不变。 */
+
+/* 本地面纱（local scrim）：皮肤联动时专用。
+   全局遮罩只能压住"平均亮度"，但卡片可能正好压在壁纸最亮处
+   （实测卡片落在照片天空区域时，--muted 标签几乎不可见）。
+   这里在卡片内叠一层暗纱，把对比度锁在卡片自己的范围内。
+   强度直接等于 --sc-xp：实心卡片不铺，越透明铺得越重。
+
+   ⚠️ 强度是反推出来的，不是拍脑袋：
+   要让 muted 文字在白底上达到 AA 4.5:1，卡片表面必须压到灰度 ≤ 68~109。
+   ⚠️ 关键：不能做成「上浅下深」的大落差！取最坏情况（最亮像素）采样时，
+   梯度顶端就是短板 —— 顶端 .55 × xp(.75) = 有效 0.41，压不住白底（实测 bg=108）。
+   所以这里用「整体就很深、只留很小的纵向渐变」：顶端 .86，底端 .94。
+   （仍保留一点倾斜是为了不显得死板，但保证顶端也足够暗。）
+   实测覆盖：xp=1（全透）→ 8.33:1；xp=0.75 → 4.81:1；xp=0.55 → 4.5:1 以上。 */
+.sc-card[data-skin]::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  pointer-events:none;z-index:1;
+  background:linear-gradient(180deg,rgb(0 0 0 / .86) 0%,rgb(0 0 0 / .90) 55%,rgb(0 0 0 / .94) 100%);
+  opacity:var(--sc-xp,0);transition:opacity .3s ease}
+.sc-card>*{position:relative;z-index:2}
+/* 光晕要压在面纱下面（z-index:0），所以从上面那条统一抬高 z-index 的规则里排除。 */
+.sc-card>.sc-glow{position:absolute;z-index:0}
+
+/* ── 沉浸模式下的文字对比度补偿（与 index.html 同源） ──
+   ⚠️ 为什么不能只靠"全局遮罩"：遮罩只能压「整屏平均亮度」，而卡片可能正好落在壁纸
+   最亮的那一块上。所以卡片内既要叠本地面纱（上面 ::after），也要把 muted 文字往
+   --text 方向混合。实测：alpha=.25 叠亮壁纸时 muted 只有 3.62:1，低于 WCAG AA 4.5。
+   --sc-muted-base 让浅色模式替换「暗端」基准色，而不用另写一条 color（会盖掉本规则）。 */
+.sc-label,.sc-hint,.sc-unit{
+  color:color-mix(in srgb, var(--text) calc(70% * var(--sc-xp,0)),
+                  var(--sc-muted-base,var(--muted)));
+  transition:color .3s ease}
+@supports not (color:color-mix(in srgb,red,blue)){
+  /* 回退：手动朝 --text-rgb 插值，保证老浏览器也能提亮 */
+  .sc-label,.sc-hint,.sc-unit{
+    color:rgb(var(--text-rgb,238 238 247) / calc(.62 + .38 * var(--sc-xp,0)))}
+}
+
+/* 角落氛围光晕（跟随 tone 变色）
+   ⚠️ 必须用真实子元素 .sc-glow，不能用 .sc-card::after！
+   因为皮肤联动的本地面纱已经占用了 .sc-card[data-skin]::after ——
+   同一个元素只有一个 ::after，两条规则会**合并**（不冲突的属性会同时生效），
+   于是光晕的 top/right/width/height 泄漏到面纱上，
+   表现为卡片右侧出现一块明显的浅色方块（踩过，截图里非常显眼）。
+   拆成子元素后，::before = 顶边高光，::after = 本地面纱，互不干扰。 */
+.sc-glow{position:absolute;z-index:0;
   top:-56px;right:-42px;width:150px;height:150px;border-radius:50%;
   background:radial-gradient(circle,var(--sc-glow) 0%,transparent 70%);
   opacity:.5;pointer-events:none}
@@ -64,7 +138,7 @@ const CSS = `
   display:flex;align-items:center;justify-content:center;
   font-size:14px;line-height:1;color:var(--sc-tone);
   background:var(--sc-tone-dim);border:1px solid var(--sc-tone-brd)}
-.sc-label{color:var(--muted);font-size:13px;font-weight:500;
+.sc-label{font-size:13px;font-weight:500;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── 数值 ── */
@@ -72,10 +146,10 @@ const CSS = `
   line-height:1.1;color:var(--sc-tone);
   font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
   display:flex;align-items:baseline;gap:6px}
-.sc-unit{font-size:13px;font-weight:600;color:var(--muted);
+.sc-unit{font-size:13px;font-weight:600;
   letter-spacing:0;font-variant-numeric:normal}
 
-.sc-hint{margin-top:7px;font-size:11.5px;color:var(--muted);
+.sc-hint{margin-top:7px;font-size:11.5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── 运行中转圈点 ── */
@@ -141,9 +215,10 @@ body[data-scheme="light"] .sc-card[data-tone="green"]{--sc-tone:#0f8a5a;--sc-ton
 body[data-scheme="light"] .sc-card[data-tone="amber"]{--sc-tone:#9a6508;--sc-tone-soft:#b8790a;--sc-tone-dim:rgba(184,121,10,.1);--sc-tone-brd:rgba(184,121,10,.22)}
 body[data-scheme="light"] .sc-card[data-tone="red"]{--sc-tone:#c22544;--sc-tone-soft:#d92b4b;--sc-tone-dim:rgba(217,43,75,.1);--sc-tone-brd:rgba(217,43,75,.2)}
 body[data-scheme="light"] .sc-card[data-tone="muted"]{--sc-tone:#141420;--sc-tone-soft:#5c5c74}
-body[data-scheme="light"] .sc-label,
-body[data-scheme="light"] .sc-hint,
-body[data-scheme="light"] .sc-unit{color:#5c5c74}
+/* 浅色模式下 secondary 文字的「暗端」基准色：从 --muted 换成浅色专用灰。
+   注意这里只改基准变量，不写死 color —— 否则会盖掉上面那条 color-mix，
+   沉浸模式下的对比度补偿就失效了。 */
+body[data-scheme="light"]{--sc-muted-base:#5c5c74}
 
 /* 系统偏好浅色 且 未显式声明深色时，才算浅色。
    （用户显式选择优先；无头环境默认 light 也不会把深色面板弄坏。） */
@@ -211,12 +286,16 @@ export class StatCards {
    * @param {object} opts
    * @param {HTMLElement} opts.mount
    * @param {number} [opts.animationMs] 数字滚动时长，0 = 关闭
+   * @param {boolean} [opts.skin] 是否启用皮肤联动（跟随 --sc-skin-rgb / --sc-skin-alpha）。
+   *        开启后卡片背景透明度由皮肤系统驱动，可随「沉浸模式」实时变化；
+   *        关闭时用组件自带的 --sc-bg 常量（独立使用时不需要皮肤系统）。
    */
-  constructor({ mount, animationMs = 550 } = {}) {
+  constructor({ mount, animationMs = 550, skin = false } = {}) {
     if (!mount) throw new Error("StatCards: 缺少 mount 挂载点");
     injectStyle();
     this.mount = mount;
     this.animationMs = animationMs;
+    this.skin = !!skin;
     this.items = [];
     this.nodes = new Map(); // key -> { root, numEl, barEl, hintEl, ... }
     this.cancels = new Map();
@@ -249,6 +328,8 @@ export class StatCards {
     root.className = "sc-card";
     root.dataset.tone = it.tone || "accent";
     root.dataset.key = it.key;
+    // 开启皮肤联动时打标记，CSS 里 .sc-card[data-skin] 才会走皮肤变量
+    if (this.skin) root.dataset.skin = "1";
 
     const progressHtml =
       it.progress != null
@@ -256,6 +337,7 @@ export class StatCards {
         : "";
 
     root.innerHTML = `
+      <div class="sc-glow"></div>
       <div class="sc-head">
         <div class="sc-ico">${it.icon || "▦"}</div>
         <div class="sc-label"></div>
