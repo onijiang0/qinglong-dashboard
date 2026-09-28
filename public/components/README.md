@@ -28,7 +28,23 @@ python -m http.server 8000 --directory public
 
 ## 接入现有 index.html
 
-把原来的 `<script>` 改成 module 并引入：
+**已经完成接入**（见 `public/index.html`）。当前状态：
+
+| 位置 | 组件 | 挂载点 |
+|---|---|---|
+| 概览页统计卡片 | `StatCards` | `#statCards` |
+| 任务管理列表 | `VirtualTaskTable` | `#taskTable` |
+| 日志浮层 | `LogViewer` | `#logView` |
+| 任务轮询 | `Poller` | `tasksPoller`（boot 内启动） |
+
+接入要点（改动过的三处）：
+
+1. `<body>` 补 `data-scheme="dark"` —— 显式声明配色方案，**必须写**。
+2. `<script>` 改成 `type="module"` 并在顶部 import 四个组件。
+3. 删除原 `drawTasks()` 的全量 `innerHTML` 重建、`$("ovText").textContent=...`、
+   `setInterval(...,30000)` 三处旧实现。
+
+API 用法（`index.html` 里的实际调用）：
 
 ```html
 <script type="module">
@@ -42,32 +58,35 @@ import { Poller } from "./components/poller.js";
 ### ① 任务列表
 
 ```js
-const vt = new VirtualTaskTable({
-  mount: document.getElementById("taskMount"),
-  onAction: async (action, task) => {
-    if (action === "log") openLog(task.logPath, task.name);
-    else await api(`/api/tasks/${task.id}/${action}`, { method: "PUT" });
-  },
+vt = new VirtualTaskTable({
+  mount: $("taskTable"),
+  onAction: async (act, task) => { /* log / run / enable / disable 四种操作 */ },
 });
-vt.setData(tasks);        // 全量，内部自己过滤
-vt.setQuery("camel");     // 内置 180ms 防抖
+vt.setData(tasks);          // 全量灌入，内部自己过滤
+vt.setQuery("camel");       // 内置 180ms 防抖
 vt.setFilter("running");
 ```
 
-替换 `index.html` 中 `<section id="tasks">` 的 `.filters` + `<table>` 两段（表头与空态由组件自带）。
+> ⚠️ 一定要在 `page("tasks")` 里补一句 `requestAnimationFrame(() => vt.refresh())`。
+> 原因：`#tasks` 初始是 `display:none`，容器高度为 0，虚拟表格算不出可视行数
+> （实测 `clientHeight === 0`，只能渲染 17 行且滚动位置无意义）。
+> 切页时强制重排一次即可 —— 虽然 `ResizeObserver` 多数情况下也会兜住，
+> 但显式调用不依赖它的触发时机。
+
 
 ### ② 统计卡片
 
 ```js
-const cards = new StatCards({ mount: document.getElementById("cards") });
+cards = new StatCards({ mount: $("statCards") });
 cards.setData([
-  { key:"total",    label:"任务总数",     value:423, hint:"定时任务",        tone:"accent", icon:"▦" },
-  { key:"running",  label:"运行中",       value:6,   hint:"status = 0",      tone:"green",  icon:"▶", pulse:true },
-  { key:"recent",   label:"24h 内执行过", value:381, hint:"按上次执行时间",  tone:"accent", icon:"◔", progress:0.9 },
-  { key:"disabled", label:"已禁用",       value:36,  hint:"未参与调度",      tone:"amber",  icon:"⏸", progress:0.085 },
+  { key:"total",    label:"任务总数",     value:4200, hint:"定时任务",       tone:"accent", icon:"▦" },
+  { key:"running",  label:"运行中",       value:352,  hint:"状态：运行中",   tone:"green",  icon:"▶", pulse:true },
+  { key:"recent24", label:"24h 内执行过", value:1860, hint:"按上次执行时间", tone:"accent", icon:"◔", progress:0.44 },
+  { key:"disabled", label:"已禁用",       value:324,  hint:"未参与调度",     tone:"amber",  icon:"⏸", progress:0.077 },
 ]);
-cards.update("running", { value: 7 });   // 原地更新，不重建 DOM（数字带滚动动画）
 ```
+
+注意：数字用 `setData` 全量下发即可，组件内部只更新差异字段、不重建 DOM。
 
 > 需要在页面根元素加 `data-scheme="dark"` 或 `"light"` 来显式声明配色方案，
 > 否则会跟随系统偏好（详见下方「深浅色模式」）。
@@ -75,31 +94,58 @@ cards.update("running", { value: 7 });   // 原地更新，不重建 DOM（数�
 ### ③ 日志查看器
 
 ```js
-const lv = new LogViewer({ mount: document.getElementById("logMount") });
-lv.setContent(text);          // 一次性灌入整份日志
-lv.append(chunk);             // 增量追加（轮询 / SSE），内部 rAF 合并
-lv.scrollToBottom();
+lv = new LogViewer({ mount: $("logView"), title });
+lv.setContent(text);              // 一次性灌入整份日志
+lv.append(chunk);                 // 增量追加（轮询 / SSE），内部 rAF 合并
+lv.scrollToBottom(true);          // true = 瞬时到底（初次载入用），省略则平滑
 ```
 
 ### ④ 数据层轮询
 
 ```js
-const poller = new Poller({
+tasksPoller = new Poller({
   interval: 30000,
   fetcher: () => api("/api/tasks"),
-  onData: (data, meta) => {
-    if (meta.changed) vt.setData(data.data);   // 内容没变就完全跳过渲染
+  onData: (result, meta) => {
+    setConn(true);
+    if (!meta.changed) return;            // 内容没变就完全跳过渲染
+    tasks = result.data || [];
+    render();
   },
-  onError: (e, meta) => console.warn("失败", meta.failures, "下次", meta.nextInterval),
+  onError: (e, meta) => {
+    if (e.message === "需要登录") return;
+    setConn(false, e.message);
+    console.warn(`第 ${meta.failures} 次失败，下次 ${(meta.nextInterval/1000)|0}s 后重试`);
+  },
 });
-poller.start();
+tasksPoller.start();
 ```
 
-替换掉原来的 `setInterval(() => { if (!document.hidden) loadTasks() }, 30000)`。
+替换掉了原来的 `setInterval(() => { if (!document.hidden) loadTasks() }, 30000)`。
+系统监控页的 5 秒轮询保持原样未动。
+
 
 ---
 
 ## 实测数据（Chrome 真实运行，非估算）
+
+### 接入 `index.html` 后的端到端验证
+
+用真实 `server.js`（`express.static`）起服务，puppeteer 驱动真实 Chrome，
+`/api/*` 全部拦截注入 4,200 条假任务：
+
+| 断言项 | 结果 |
+|---|---|
+| 4 个组件模块加载 | 全部 `200 application/javascript` |
+| 页面错误 / 控制台错误 / 请求失败 | **0** |
+| 统计卡片 | 4 张，`blur(14px) saturate(1.5)`，`tabular-nums` |
+| 数字对比度（深色） | **9.09 : 1**（WCAG AAA 要求 7:1） |
+| 虚拟列表 4,200 条 | DOM 仅 **17 行**，sizer `235200px` = 4200×56 精确 |
+| 滚到底 末行 idx | **4199** = `N-1` ✓ |
+| 搜索「农场」 | 840 条命中，DOM 仍 17 行 |
+| 筛选「已禁用」 | 324 条 |
+| 日志查看器 3000 行 | 容器 545px，DOM 36 行，行高 21px，自动滚到底（距底 0） |
+| 浅色模式（`data-scheme="light"`） | 数字转 `rgb(91,62,214)` / 卡片 `rgba(255,255,255,.66)`，对比度正常 |
 
 ### 虚拟列表
 
@@ -112,6 +158,7 @@ poller.start();
 | 60 帧连续滚动 | 16↔23 | 全程 760ms，DOM 波动来自缓冲行 |
 
 **DOM 节点数与数据量完全解耦。**
+
 
 ### 日志查看器
 
@@ -169,6 +216,18 @@ poller.start();
 ---
 
 ## 踩坑记录（改代码前请先读）
+
+### 0. 单页应用里，隐藏视图中的虚拟列表量不出高度
+
+接入 `index.html` 时踩到的：`#tasks` 初始是 `display:none`，
+容器 `clientHeight === 0`，虚拟表格算不出可视行数 ——
+实测只渲染 17 行、`sizer` 高度倒是写对了、但滚动位置完全无意义
+（滚到底拿到的 `lastIdx` 是 6 而不是 4199）。
+
+**规则：虚拟滚动组件必须保证「挂载时容器可见」或「进入视图时强制 refresh()」。**
+本项目的做法是在 `page(name)` 里补一句
+`if(name==="tasks"&&vt) requestAnimationFrame(()=>vt.refresh())`。
+不要只依赖 `ResizeObserver` —— 它能兜住绝大多数场景，但触发时机不由你控制。
 
 ### 1. `[hidden]` 会被自定义 CSS 的 `display` 覆盖
 
