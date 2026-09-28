@@ -603,8 +603,14 @@ function applyBg(url){skin.setWallpaper(url)}
 /* 暴露给调试/自动化验证使用。
    ⚠️ 验证脚本必须通过它来切换场景，不要直接 setProperty 改 CSS 变量：
    直接改会被 onChange 回写覆盖，测试实际跑在旧状态上却以为自己改了 —— 
-   会导致「明明设了沉浸态，测出来却是非沉浸」这类假结论。 */
-window.qld = Object.assign(window.qld || {}, { skin });
+   会导致「明明设了沉浸态，测出来却是非沉浸」这类假结论。
+   ⚠️ 另外两点也踩过：
+   (1) 不能用 skin.state() —— state 是**属性**不是方法；
+   (2) 直接调 skin.use(id) 会跳过「皮肤联动主题」那一步（主题在卡片点击回调里应用），
+       要验证主题联动必须走真实的 .skinCard 点击。
+   openLog 也一并暴露：日志查看器只在「打开某条日志」时才挂载
+   （不是进日志页就挂载），自动化验证要能走到真实挂载路径。 */
+window.qld = Object.assign(window.qld || {}, { skin, openLog });
 
 /** 把皮肤状态回填到界面控件（滑块 / 开关 / 输入框 / 选中态） */
 function syncSkinControls(st){
