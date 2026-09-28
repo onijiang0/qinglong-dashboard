@@ -60,9 +60,24 @@ const CSS = `
 /* 非沉浸：实心面板色（用主题的 panel 三元组，与页面 .card 同源观感）。
    不透明度跟随 --card-alpha，与页面其它卡片保持一致（默认 1 = 完全不透明），
    这样非沉浸态下它是一块真正的实心表面，浅灰文字有足够底气。
-   ⚠️ 不要写死成 .92 之类的常量：那会在主题把 --card-alpha 调低时与页面脱节。 */
-.sc-card[data-skin]:not([data-immersive]) {
+   ⚠️ 不要写死成 .92 之类的常量：那会在主题把 --card-alpha 调低时与页面脱节。
+   ⚠️ 必须排除浅色模式：--panel-rgb 是「主题色相下的深色面板」，在浅色模式下它
+   依然是深色（17 17 27）。而下方 body[data-scheme="light"] 的规则已经把标签
+   切成浅色专用灰（--sc-muted-base:#5c5c74）——深字压深底 → 实测 2.89:1，AA 失败。
+   （踩过：截图里浅色下四张卡片仍是四块深色。）
+   所以浅色模式必须改用「浅色玻璃底」，由页面注入的 --sc-skin-rgb + 一个
+   跟 --card-alpha 联动的白色不透明度来给；见下一条规则。 */
+.sc-card[data-skin]:not([data-immersive]):not([data-light]) {
   background:rgb(var(--panel-rgb,17 17 27) / var(--card-alpha,1));
+}
+/* 浅色模式的实心面：白色玻璃（与页面 .card 在浅色下的观感同源）。
+   白色不透明度同样跟随 --card-alpha（1 = 实心、越小越透），
+   保证浅色下卡片与页面其它卡片一起透明/一起实心，不会脱节。
+   ⚠️ 不要直接把 --card-alpha 当白色不透明度用：1 会得到纯白板砖（踩过），
+   但浅色模式「纯白」恰恰是对的观感，所以这里可以从 1 起算，
+   只在需要透明时才往下走 —— 用 0.72 + 0.28*alpha 保证最透也有托底。 */
+.sc-card[data-skin][data-light]:not([data-immersive]) {
+  background:rgb(var(--sc-skin-rgb,255 255 255) / calc(.72 + .28 * var(--card-alpha,1)));
 }
 /* 沉浸：白色玻璃，不透明度由 --sc-skin-alpha 控制 */
 .sc-card[data-skin][data-immersive] {
@@ -209,12 +224,41 @@ body[data-scheme="light"]{
   --sc-text-fallback:#141420;
   --sc-muted-fallback:#5c5c74;
 }
-/* 浅色模式下的 tone 也要加深，否则浅底上 #bca8ff 这类浅紫对比度不足 */
-body[data-scheme="light"] .sc-card[data-tone="accent"]{--sc-tone:#5b3ed6;--sc-tone-soft:#7c5cff;--sc-tone-dim:rgba(109,74,255,.1);--sc-tone-brd:rgba(109,74,255,.2)}
-body[data-scheme="light"] .sc-card[data-tone="green"]{--sc-tone:#0f8a5a;--sc-tone-soft:#12a06a;--sc-tone-dim:rgba(18,160,106,.1);--sc-tone-brd:rgba(18,160,106,.2)}
-body[data-scheme="light"] .sc-card[data-tone="amber"]{--sc-tone:#9a6508;--sc-tone-soft:#b8790a;--sc-tone-dim:rgba(184,121,10,.1);--sc-tone-brd:rgba(184,121,10,.22)}
-body[data-scheme="light"] .sc-card[data-tone="red"]{--sc-tone:#c22544;--sc-tone-soft:#d92b4b;--sc-tone-dim:rgba(217,43,75,.1);--sc-tone-brd:rgba(217,43,75,.2)}
+/* ── 浅色模式下的 tone ──
+   ⚠️ 这里曾经写死过一组"浅色专用色"（#5b3ed6 / #7c5cff / #0f8a5a …），
+   踩了两个坑：
+   (1) 色相错位：那组色是**纯紫系**，而本项目四套主题的 accent 分别是
+       淡紫 #bca8ff / 蓝 #8fd9ff / 青绿 #7ce7bb / 粉 #ffb1d3。
+       切到浅色后主题色相被整体丢掉（ΔRGB 差 140~260），
+       截图里表现为「accent 卡片的图标底衬变成一块蓝紫方块」——
+       当时误判成光晕泄漏，实际是这组写死的色。
+   (2) 本身不达标：白底上 #7c5cff 只有 4.35:1、#0f8a5a 只有 4.37:1，
+       浅底(#f6f6fa) 上 further 掉到 4.03 —— 即使底色修好也过不了 AA。
+   正确做法：**从当前主题的 accent 派生**，只做"往黑里压"这一件事，
+   色相由主题决定，明度由公式保证 AA。语义化的绿/琥珀/红仍走固定色相
+   （它们表示状态，不该跟着主题变），但同样经过加深补偿。 */
+body[data-scheme="light"] .sc-card[data-tone="accent"]{
+  /* 主题 accent 往黑里混 44%（保留 56%），色相不变、明度压到达标。
+     为什么是 56%：不同色相的「感知亮度」差异很大 —— 同样是保留 68%，
+     淡紫 #9b7cff 有 6.05:1，而青蓝 #4cc3ff 只有 4.11:1、青绿 #34d399 只有 4.04:1
+     （青/绿本身偏亮，直接混黑不够狠）。实测四套主题在保留 56% 时：
+     淡紫 7.92 / 青蓝 5.70 / 青绿 5.56 / 粉 6.44，全部 ≥5.5，留足余量。
+     用 color-mix 而不是固定色值，四套主题各自得到"自己的深色 accent"。 */
+  --sc-tone:color-mix(in srgb, var(--accent) 56%, #000);
+  --sc-tone-soft:color-mix(in srgb, var(--accent) 70%, #000);
+  --sc-tone-dim:color-mix(in srgb, var(--accent) 12%, transparent);
+  --sc-tone-brd:color-mix(in srgb, var(--accent) 24%, transparent);
+}
+body[data-scheme="light"] .sc-card[data-tone="green"]{--sc-tone:#0b6e48;--sc-tone-soft:#0d8253;--sc-tone-dim:rgba(11,110,72,.1);--sc-tone-brd:rgba(11,110,72,.2)}
+body[data-scheme="light"] .sc-card[data-tone="amber"]{--sc-tone:#8a5a06;--sc-tone-soft:#a06a08;--sc-tone-dim:rgba(138,90,6,.1);--sc-tone-brd:rgba(138,90,6,.22)}
+body[data-scheme="light"] .sc-card[data-tone="red"]{--sc-tone:#b01f3c;--sc-tone-soft:#c62a48;--sc-tone-dim:rgba(176,31,60,.1);--sc-tone-brd:rgba(176,31,60,.2)}
 body[data-scheme="light"] .sc-card[data-tone="muted"]{--sc-tone:#141420;--sc-tone-soft:#5c5c74}
+/* 不支持 color-mix 时退回一组过 AA 的固定浅色 tone（色相仍是"通用"的，
+   但至少不会深浅撞车）。 */
+@supports not (color:color-mix(in srgb,red,blue)){
+  body[data-scheme="light"] .sc-card[data-tone="accent"]{
+    --sc-tone:#4a2fb8;--sc-tone-soft:#5f42d4;--sc-tone-dim:rgba(74,47,184,.1);--sc-tone-brd:rgba(74,47,184,.2)}
+}
 /* 浅色模式下 secondary 文字的「暗端」基准色：从 --muted 换成浅色专用灰。
    注意这里只改基准变量，不写死 color —— 否则会盖掉上面那条 color-mix，
    沉浸模式下的对比度补偿就失效了。 */
@@ -321,6 +365,50 @@ export class StatCards {
     for (const it of this.items) {
       this.grid.appendChild(this._createCard(it));
     }
+    this._syncScheme();
+  }
+
+  /**
+   * 把页面的配色方案同步到卡片的 data-light 标记上。
+   * 组件自己监听 body[data-scheme] 的变化，所以页面切换浅色/深色时
+   * 卡片会自己跟上，不需要宿主额外接线。
+   * 归属说明：底色到底是深是浅，由「页面方案」决定，所以这个标记
+   * 放在组件侧维护，而皮肤系统只负责往页面注入 --sc-skin-* 变量。
+   */
+  _syncScheme() {
+    if (!this.skin || this._schemeObserver) {
+      if (this.skin) this._applyScheme();
+      return;
+    }
+    this._applyScheme();
+    const target = document.body;
+    if (!target || typeof MutationObserver === "undefined") return;
+    this._schemeObserver = new MutationObserver(() => this._applyScheme());
+    this._schemeObserver.observe(target, {
+      attributes: true,
+      attributeFilter: ["data-scheme"]
+    });
+  }
+
+  _applyScheme() {
+    const light =
+      document.body && document.body.dataset.scheme === "light";
+    for (const { root } of this.nodes.values()) {
+      if (light) root.dataset.light = "1";
+      else delete root.dataset.light;
+    }
+  }
+
+  /** 销毁：断开方案监听，避免组件被卸载后 observer 泄漏 */
+  destroy() {
+    if (this._schemeObserver) {
+      this._schemeObserver.disconnect();
+      this._schemeObserver = null;
+    }
+    for (const cancel of this.cancels.values()) cancel();
+    this.cancels.clear();
+    this.grid.replaceChildren();
+    this.nodes.clear();
   }
 
   _createCard(it) {
