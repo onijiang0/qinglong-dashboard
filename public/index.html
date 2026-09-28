@@ -11,24 +11,40 @@
  --accent:#9b7cff;--accentSoft:#bca8ff;--accentDim:rgba(155,124,255,.14);
  --sideBg:#0d0d15;--navActiveBg:#211b39;--navActiveTx:#c8baff;--navHoverBg:#1c1a2a;
  --green:#3ddc97;--red:#ff647c;--amber:#efb327;
+
+ /* ── 皮肤层变量（由 skin-manager.js 注入，默认值与之保持一致） ──
+    ⚠️ -rgb 必须是「空格分隔」的三元组（255 255 255），不能写逗号分隔！
+       现代 rgb() 的斜杠语法 rgb(<channels> / <alpha>) 要求 channels 用空格分隔；
+       写成 rgb(255,255,255 / .5) 会因语法非法而被整条丢弃，
+       而且因为这条规则权重更高，「本该兜底」的 background:var(--sc-bg) 也救不回来
+       → 表现为卡片背景彻底透明（实测 getComputedStyle 得到 rgba(0,0,0,0)）。 */
+ --side-rgb:13 13 21;--panel-rgb:17 17 27;--panel2-rgb:23 23 37;--hover-rgb:28 26 42;
+ --text-rgb:238 238 247;
+ --card-alpha:1;
+ --skin-mask:.82;
+ --skin-blur:12px;
+ --skin-wallpaper:none;
 }
 body[data-theme="ocean"]{
  --bg:#060d17;--panel:#0c1526;--panel2:#11203a;
  --line:#1d3352;--muted:#7e93b4;
  --accent:#4cc3ff;--accentSoft:#8fd9ff;--accentDim:rgba(76,195,255,.14);
  --sideBg:#08101f;--navActiveBg:#12283f;--navActiveTx:#9fdcff;--navHoverBg:#0e1c30;
+ --side-rgb:8 16 31;--panel-rgb:12 21 38;--panel2-rgb:17 32 58;--hover-rgb:14 28 48;--text-rgb:238 238 247;
 }
 body[data-theme="jade"]{
  --bg:#070c0a;--panel:#0d1713;--panel2:#122019;
  --line:#1d3328;--muted:#86a294;
  --accent:#34d399;--accentSoft:#7ce7bb;--accentDim:rgba(52,211,153,.13);
  --sideBg:#0a120e;--navActiveBg:#12291e;--navActiveTx:#8fe9c3;--navHoverBg:#0f1f17;
+ --side-rgb:10 18 14;--panel-rgb:13 23 19;--panel2-rgb:18 32 25;--hover-rgb:15 31 23;--text-rgb:238 238 247;
 }
 body[data-theme="sakura"]{
  --bg:#120a12;--panel:#1b101c;--panel2:#241726;
  --line:#3a2440;--muted:#b292ae;
  --accent:#ff7eb6;--accentSoft:#ffb1d3;--accentDim:rgba(255,126,182,.13);
  --sideBg:#150c16;--navActiveBg:#321b35;--navActiveTx:#ffc0da;--navHoverBg:#271629;
+ --side-rgb:21 12 22;--panel-rgb:27 16 28;--panel2-rgb:36 23 38;--hover-rgb:39 22 41;--text-rgb:238 238 247;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);
@@ -36,15 +52,45 @@ font:14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 body.fx{background-image:
  radial-gradient(1100px 500px at 85% -10%, var(--accentDim), transparent 60%),
  radial-gradient(900px 420px at -10% 110%, var(--accentDim), transparent 55%)}
+
+/* ── 皮肤壁纸层 ──────────────────────────────────────────────
+   两层结构：底图（::before）+ 遮罩（::after），都用 fixed 铺满。
+   遮罩是「复杂壁纸上文字仍可读」的关键 —— 它把底图压暗，
+   保证 --text / --muted 的对比度不依赖壁纸内容。
+   透明度由 --skin-mask 控制，用户可实时拖动调节。
+   注意：这里 z-index 为负，必须配合 body 的背景色生效，
+   所以 body 需要 position:relative 并把内容抬到 z-index:0 之上。 */
+body{position:relative}
+body::before{
+ content:"";position:fixed;inset:0;z-index:-2;
+ background-image:var(--skin-wallpaper);
+ background-size:cover;background-position:center;background-attachment:fixed;
+ background-repeat:no-repeat;
+ opacity:var(--skin-masked,0);
+ transition:opacity .5s ease;
+}
+body::after{
+ content:"";position:fixed;inset:0;z-index:-1;
+ background:var(--bg);
+ opacity:calc(var(--skin-mask,.82) * var(--skin-masked,0));
+ transition:opacity .35s ease;
+}
+/* 老背景图 API 保留兼容（bgimg 类仍可用），但走同一套变量 */
 body.bgimg{background-size:cover;background-position:center;background-attachment:fixed}
-body.bgimg::before{content:"";position:fixed;inset:0;background:var(--bg);opacity:.82;z-index:-1}
+@media (prefers-reduced-motion:reduce){
+ body::before,body::after,.panel,.card,.sc-card{transition:none}
+}
 button,input,select{font:inherit}
 button{cursor:pointer}
 button:focus-visible,input:focus-visible,select:focus-visible{
  outline:2px solid var(--accent);outline-offset:2px}
 .app{display:flex;min-height:100vh}
 .side{width:232px;border-right:1px solid var(--line);padding:22px 15px;
-background:var(--sideBg);flex-shrink:0;display:flex;flex-direction:column}
+/* 侧栏比其他面板更「实」一些，保证导航文字在壁纸上始终可读。
+   用 --skin-side-alpha 派生（卡片透明度的 60%，但有下限），不单独暴露给用户。 */
+background:rgb(var(--side-rgb) / calc(.55 + .45 * var(--card-alpha)));
+backdrop-filter:blur(var(--skin-blur));-webkit-backdrop-filter:blur(var(--skin-blur));
+flex-shrink:0;display:flex;flex-direction:column;transition:background-color .3s ease}
 .logo{display:flex;align-items:center;gap:11px;margin:0 8px 6px}
 .logo img{width:44px;height:44px;border-radius:12px;object-fit:cover;
 border:2px solid var(--accent);box-shadow:0 0 14px var(--accentDim)}
@@ -56,7 +102,7 @@ padding:1px 7px;margin-top:3px;letter-spacing:.5px}
 .nav{display:block;width:100%;border:0;background:transparent;color:var(--muted);
 padding:12px 14px;border-radius:9px;text-align:left;margin:3px 0}
 .nav.active{background:var(--navActiveBg);color:var(--navActiveTx)}
-.nav:hover{background:var(--navHoverBg)}
+.nav:hover{background:rgb(var(--hover-rgb) / calc(.6 + .4 * var(--card-alpha)))}
 .sideFoot{margin-top:auto;padding:14px 10px 4px;color:var(--muted);font-size:11px;line-height:1.8}
 .main{padding:28px;flex:1;min-width:0;max-width:1500px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:15px;
@@ -78,14 +124,58 @@ padding:9px 13px;border-radius:9px;font-weight:600}
 .btn:hover{filter:brightness(1.15)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;
-padding:20px;min-width:0}
+/* ── 卡片 / 面板：透明度由 --card-alpha 实时驱动 ──
+   rgb(var(--panel-rgb) / var(--card-alpha)) 是整套玻璃效果的核心：
+   换成 rgba() 写死就失去实时调节能力。
+   ⚠️ 三元组必须空格分隔，见文件顶部皮肤变量的注释。
+   backdrop-filter 带 @supports 守卫，不支持时退化为实心面板（仍可读）。 */
+.card,.panel{background:rgb(var(--panel-rgb) / var(--card-alpha));
+ border:1px solid rgb(255 255 255 / calc(.085 * var(--card-alpha) + .015));
+ border-radius:15px;padding:20px;min-width:0;
+ transition:background-color .3s ease,border-color .3s ease,backdrop-filter .3s ease}
+@supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
+ .card,.panel{backdrop-filter:blur(var(--skin-blur));-webkit-backdrop-filter:blur(var(--skin-blur))}
+}
+/* 沉浸模式下的「本地面纱」（local scrim）：
+   全局遮罩只能保证「平均亮度」可控，但卡片可能正好压在壁纸最亮的一块上
+   （实测：卡片落在照片的天空区域时，--muted 标签色几乎看不见）。
+   所以在每张卡片内部再叠一层半透明白噪点式暗纱，把卡片区域的对比度锁死。
+   这样文字对比度就与「卡片所处位置」解耦 —— 这才是玻璃卡片能保证可读性的关键。
+   opacity = 1 - cardAlpha（cardAlpha=1 实心时面纱为 0；越透明补得越重）。
+   注意这里 cardAlpha 的约定是「1 = 实心」，与统计卡片组件的 --sc-xp 语义对齐。 */
+.card::before,.panel::before{
+ content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:0;
+ /* ⚠️ 同样不能做大落差：最坏情况采样取的是最亮像素，梯度顶端就是短板。
+    实测原 .55/.70/.82 在「沉浸 0%（全透）+ 白壁纸」下顶端仍只有 3.62:1，
+    把顶端抬到 .78 后才达标。底部保持更深，让正文区最稳。 */
+ background:linear-gradient(180deg,
+   rgb(0 0 0 / .78) 0%,
+   rgb(0 0 0 / .84) 55%,
+   rgb(0 0 0 / .90) 100%),
+  linear-gradient(180deg,rgb(255 255 255 / .05),transparent 42%);
+ opacity:calc(1 - var(--card-alpha));transition:opacity .3s ease}
+.card>*,.panel>*{position:relative;z-index:1}
+.card,.panel{position:relative}
 .card .label{color:var(--muted);font-size:13px}
+
+/* ── 沉浸模式下的文字对比度补偿 ──
+   卡片变透明后，底下透出的壁纸会把「文字实际压着的背景」整体提亮
+   （实测：亮壁纸下背景从 rgb(16,16,23) 升到 rgb(60,60,66)），
+   --muted(#9292ad) 在这个背景上只有 3.62:1，低于 WCAG AA 的 4.5。
+   仅靠遮罩解决不了 —— 因为对比度取决于「卡片所处位置」而非全局平均。
+   所以这里把沉浸模式下的次要文字色提亮，与面纱配合把对比度拉回 AA 以上。
+   用 --card-alpha 驱动：越透明，文字越亮。 */
+body{--muted-solid:var(--muted)}
+.card .label,.card .small.muted,.panel .small.muted{
+ color:color-mix(in srgb, var(--text) calc(70% * (1 - var(--card-alpha))), var(--muted))}
+@supports not (color:color-mix(in srgb,red,blue)){
+ .card .label,.card .small.muted,.panel .small.muted{
+  color:rgb(var(--text-rgb,238 238 247) / calc(.62 + .38 * (1 - var(--card-alpha))))}
+}
 .num{font-size:30px;font-weight:800;letter-spacing:-1px;margin:13px 0 7px}
 .green{color:var(--green)}.red{color:var(--red)}.purple{color:var(--accentSoft)}.amber{color:var(--amber)}
 .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:15px;margin-top:15px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;
-padding:20px;min-width:0}
+/* .panel 的规则已在上方与 .card 合并（共用 --card-alpha 透明度） */
 .panelhead{display:flex;align-items:center;justify-content:space-between;gap:10px;
 margin-bottom:18px;flex-wrap:wrap}
 .chart{width:100%;height:260px}
@@ -101,12 +191,17 @@ th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);
 white-space:nowrap}
 th{font-size:12px;color:var(--muted);font-weight:600}
 td{font-size:13px}
-tbody tr:hover{background:var(--navHoverBg)}
-tr.dirrow{background:var(--panel2)}
+tbody tr:hover{background:rgb(var(--hover-rgb) / calc(.6 + .4 * var(--card-alpha)))}
+tr.dirrow{background:rgb(var(--panel2-rgb) / calc(.72 + .28 * var(--card-alpha)))}
 tr.dirrow td{font-weight:600}
 tr.filechild td:first-child{padding-left:34px}
-.input{background:var(--panel2);color:var(--text);border:1px solid var(--line);
-padding:10px 12px;border-radius:9px;min-width:0;width:100%}
+/* 输入框 / 浮层 / 皮肤卡片：透明度跟随皮肤，但有下限（0.72 起），
+   否则表单和弹窗在壁纸上会「糊掉」，输入内容看不清。
+   这是刻意的取舍：可交互控件优先保证可读，装饰性面板才允许高通透。 */
+.input{background:rgb(var(--panel2-rgb) / calc(.72 + .28 * var(--card-alpha)));
+color:var(--text);border:1px solid var(--line);
+padding:10px 12px;border-radius:9px;min-width:0;width:100%;
+transition:background-color .3s ease}
 label.f{display:block;margin:0 0 14px}
 label.f span{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
 .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px;align-items:center}
@@ -123,8 +218,10 @@ font:12px ui-monospace,Consolas,monospace;color:#b6b6ce;min-height:220px;max-hei
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;
 align-items:center;justify-content:center;z-index:50;padding:20px}
 .overlay.show{display:flex}
-.overlay .box{background:var(--panel);border:1px solid var(--line);border-radius:15px;
-width:min(960px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.overlay .box{background:rgb(var(--panel-rgb) / calc(.82 + .18 * var(--card-alpha)));
+border:1px solid var(--line);border-radius:15px;
+width:min(960px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;
+backdrop-filter:blur(calc(var(--skin-blur) * 1.4));-webkit-backdrop-filter:blur(calc(var(--skin-blur) * 1.4))}
 .overlay .box.narrow{width:min(380px,100%)}
 .overlay .box header{display:flex;justify-content:space-between;align-items:center;
 gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
@@ -138,9 +235,36 @@ border:1px solid var(--line);margin-top:9px}
 .pbar i.warn{background:var(--amber)}.pbar i.hot{background:var(--red)}
 .themeGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .themeCard{border:1px solid var(--line);border-radius:11px;padding:12px;text-align:left;
-background:var(--panel2)}
+background:rgb(var(--panel2-rgb) / calc(.72 + .28 * var(--card-alpha)));
+transition:background-color .3s ease,border-color .2s ease}
 .themeCard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .themeCard .sw{display:flex;gap:5px;margin-bottom:9px}
+
+/* ── 皮肤卡片 ── */
+.skinGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}
+.skinCard{border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left;
+background:rgb(var(--panel2-rgb) / calc(.72 + .28 * var(--card-alpha)));
+transition:border-color .2s ease,transform .15s ease,background-color .3s ease}
+.skinCard:hover{transform:translateY(-2px)}
+.skinCard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.skinCard b{font-size:13px;display:block;margin-top:9px}
+.skinCard .small{margin-top:2px;display:block}
+/* 缩略图：有壁纸就显示壁纸，没有就用主题色渐变占位 */
+.skinThumb{display:block;height:64px;border-radius:8px;background-size:cover;
+background-position:center;border:1px solid rgba(255,255,255,.08)}
+
+/* ── 滑块（原生 range 在深色下几乎不可见，必须自己画） ── */
+.range{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;
+background:rgb(var(--panel2-rgb) / .9);border:1px solid var(--line);outline:none;
+margin-top:4px;cursor:pointer}
+.range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:17px;height:17px;
+border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;
+box-shadow:0 0 0 3px var(--accentDim);transition:transform .12s ease}
+.range::-webkit-slider-thumb:hover{transform:scale(1.14)}
+.range::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);
+border:2px solid var(--bg);cursor:pointer;box-shadow:0 0 0 3px var(--accentDim)}
+.range:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+label.f span b{color:var(--accentSoft);font-weight:700}
 .themeCard .sw i{width:16px;height:16px;border-radius:5px;display:inline-block;border:1px solid rgba(255,255,255,.15)}
 .themeCard b{font-size:13px;display:block}
 .themeCard .small{margin-top:3px}
@@ -155,6 +279,7 @@ background:var(--panel2)}
  .mobile-nav .nav{width:auto;white-space:nowrap}
  .cards{gap:10px}.card{padding:15px}.num{font-size:26px}
  .panel{padding:15px}h1{font-size:22px}.themeGrid{grid-template-columns:1fr 1fr}
+ .skinGrid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -306,18 +431,67 @@ background:var(--panel2)}
  </section>
 
  <section class="view" id="beauty">
-  <div class="panel">
-   <div class="panelhead"><div><h2>界面美化</h2><div class="muted small">点击方案立即生效并自动保存（本机浏览器记忆）</div></div></div>
-   <div class="themeGrid" id="themeGrid"></div>
-   <div style="margin-top:22px">
-    <div class="ckrow"><input type="checkbox" id="ckFx" checked><label for="ckFx">背景光效（页面边角氛围光）</label></div>
-    <label class="f" style="margin-top:16px"><span>自定义背景图（URL，留空 = 不使用；叠加半透明遮罩保证可读性）</span>
-     <input class="input" id="bgUrl" placeholder="https://...jpg/png"></label>
-    <div style="display:flex;gap:10px">
-     <button class="btn primary" id="bgApply">应用背景</button>
-     <button class="btn" id="bgClear">清除背景</button>
+  <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:0">
+   <!-- 左：皮肤（材质层） -->
+   <div class="panel">
+    <div class="panelhead"><div><h2>皮肤</h2><div class="muted small">壁纸 · 遮罩 · 卡片通透度，实时生效不刷新</div></div></div>
+    <div class="skinGrid" id="skinGrid"></div>
+
+    <div style="margin-top:20px">
+     <label class="f"><span>壁纸图片地址（URL）</span>
+      <input class="input" id="bgUrl" placeholder="https://...jpg / png"></label>
+     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn primary" id="bgApply">应用壁纸</button>
+      <button class="btn" id="bgClear">清除壁纸</button>
+      <label class="btn" style="display:inline-flex;align-items:center;gap:6px">
+       选择本地图片<input type="file" id="bgFile" accept="image/*" style="display:none">
+      </label>
+     </div>
+     <div class="muted small" style="margin-top:9px">
+      本地图片走 FileReader 转 dataURL，<b>只存在本机浏览器</b>，不会上传到面板。
+     </div>
     </div>
    </div>
+
+   <!-- 右：调节（实时滑块） -->
+   <div class="panel">
+    <div class="panelhead"><div><h2>调节</h2><div class="muted small">拖动即时预览，松开自动保存</div></div>
+     <button class="btn" id="skinReset">恢复默认</button></div>
+
+    <div class="ckrow" style="margin-top:0">
+     <input type="checkbox" id="ckImmersive">
+     <label for="ckImmersive">沉浸模式（卡片透出壁纸；关闭则卡片完全不透明）</label>
+    </div>
+
+    <label class="f" style="margin-top:18px">
+     <span>遮罩浓度 <b id="maskVal" class="muted">82%</b>　<span class="muted">— 越高文字越清晰</span></span>
+     <input type="range" id="maskRange" min="0" max="100" value="82" class="range">
+    </label>
+
+    <label class="f">
+     <span>卡片通透度 <b id="cardVal" class="muted">100%</b>　<span class="muted">— 越低越透明</span></span>
+     <input type="range" id="cardRange" min="0" max="100" value="100" class="range">
+    </label>
+
+    <label class="f">
+     <span>玻璃模糊 <b id="blurVal" class="muted">12px</b></span>
+     <input type="range" id="blurRange" min="0" max="30" value="12" class="range">
+    </label>
+
+    <div class="muted small" style="line-height:1.9;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+     <b>为什么遮罩这么重要？</b><br>
+     壁纸颜色不可控，深色文字压在白底照片上会完全看不清。
+     遮罩层把底图统一压暗到固定亮度，文字对比度就不再取决于壁纸内容 ——
+     这也是所有成熟换肤系统都要带一层 overlay 的原因。
+    </div>
+   </div>
+  </div>
+
+  <!-- 主题（色相层） -->
+  <div class="panel" style="margin-top:15px">
+   <div class="panelhead"><div><h2>主题配色</h2><div class="muted small">只管色相，与皮肤正交 —— 换皮肤不会重置主题</div></div></div>
+   <div class="themeGrid" id="themeGrid"></div>
+   <div class="ckrow" style="margin-top:16px"><input type="checkbox" id="ckFx" checked><label for="ckFx">背景光效（页面边角氛围光）</label></div>
   </div>
  </section>
 </main>
@@ -365,13 +539,14 @@ import { VirtualTaskTable } from "./components/virtual-task-table.js";
 import { StatCards } from "./components/stat-cards.js";
 import { LogViewer } from "./components/log-viewer.js";
 import { Poller } from "./components/poller.js";
+import { SkinManager } from "./components/skin-manager.js";
 
 const $=id=>document.getElementById(id);
 let tasks=[],logFiles=[],loginCb=null,expandedDirs=new Set(),trendRange=86400,systemTimer=null;
-const titles={overview:["数据总览","青龙运维 · 运维中心"],tasks:["任务管理","查看与操作青龙定时任务"],logs:["日志管理","批量查看与清理任务日志"],system:["系统监控","面板后端资源使用情况"],settings:["连接设置","青龙连接与账号管理"],beauty:["界面美化","主题方案与背景设置"]};
+const titles={overview:["数据总览","青龙运维 · 运维中心"],tasks:["任务管理","查看与操作青龙定时任务"],logs:["日志管理","批量查看与清理任务日志"],system:["系统监控","面板后端资源使用情况"],settings:["连接设置","青龙连接与账号管理"],beauty:["界面美化","皮肤 · 主题 · 个性化定制"]};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-/* ---------- 主题 ---------- */
+/* ---------- 主题（色相层，四套写死色板） ---------- */
 const THEMES=[
  {id:"aurora",name:"暗紫极光",desc:"默认 · Dark Plus",sw:["#9b7cff","#09090f","#171725"]},
  {id:"ocean",name:"深海蓝调",desc:"冷色 · 科技感",sw:["#4cc3ff","#060d17","#11203a"]},
@@ -384,27 +559,130 @@ function applyTheme(id){
  localStorage.setItem("ql_theme",id);
 }
 function applyFx(on){document.body.classList.toggle("fx",on);localStorage.setItem("ql_fx",on?"1":"0")}
-function applyBg(url){
- document.body.classList.toggle("bgimg",!!url);
- document.body.style.backgroundImage=url?`linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.25)),url("${url.replace(/"/g,"")}")`:"";
- localStorage.setItem("ql_bg",url||"");
+
+/* ---------- 皮肤（材质层：壁纸 / 遮罩 / 卡片透明度 / 模糊） ----------
+   与主题正交：换皮肤不动主题，换主题不丢壁纸。
+   所有状态由 SkinManager 注入到 :root 的 CSS 变量，全程不刷新页面。 */
+const skin=new SkinManager({
+ onChange:(st,keys)=>{
+  syncSkinControls(st);
+  // 统计卡片跟随皮肤透明度：给它一组 RGB 三元组 + alpha。
+  // ⚠️ 三元组必须用空格分隔，否则 rgb(<channels> / <alpha>) 语法非法、整条声明被丢，
+  //    卡片会变成全透明（踩过，实测 getComputedStyle 返回 rgba(0,0,0,0)）。
+  // ⚠️ 约定统一：--card-alpha 一律「1 = 实心，0 = 全透明」，与页面 .card 保持一致。
+  //    但注意：卡片底色白是「叠在页面深色底上的浅色蒙层」，所以这里不能直接把
+  //    cardAlpha 当白色不透明度用 —— alpha=1 会得到 rgb(255 255 255 / 1)，
+  //    也就是一整块纯白板砖（踩过，实测卡片整片 255,255,255）。
+  //    正确做法：非沉浸态给一个很淡的白色基线 0.045，沉浸态再随 cardAlpha 放大。
+  //    --sc-xp（透明程度 = 1 - cardAlpha）单独维护，供面纱/文字提亮使用，
+  //    它与「底色白不透明度」是两个概念，不要混用同一个变量。
+  const root=document.documentElement.style;
+  root.setProperty("--sc-skin-rgb", "255 255 255");
+  const xp = st.immersive ? (1 - st.cardAlpha) : 0;           // 0=实心 1=全透
+  // 白色底色的不透明度：非沉浸 → 0.045 基线；沉浸 → 随透明程度衰减
+  const whiteAlpha = st.immersive
+    ? 0.045 + 0.42 * st.cardAlpha
+    : 0.045;
+  root.setProperty("--sc-skin-alpha", whiteAlpha.toFixed(4));
+  root.setProperty("--sc-xp", xp.toFixed(4));
+  // 让统计卡片在「实心面板底」与「白色玻璃底」之间切换。
+  // 单靠 alpha 分不开这两种观感（非沉浸要的是主题面板色，不是白色蒙层），
+  // 所以用一个显式开关属性，CSS 侧按它选不同的底色规则。
+  document.querySelectorAll(".sc-card[data-skin]").forEach(el=>{
+   if(st.immersive) el.setAttribute("data-immersive","1");
+   else el.removeAttribute("data-immersive");
+  });
+ }
+});
+
+/* 老 API 的兼容垫片：原来 applyBg 走的是 body.style.backgroundImage，
+   现在统一改为注入 --skin-wallpaper，交给皮肤层渲染。
+   （保留函数名，避免外部脚本调用时炸掉。） */
+function applyBg(url){skin.setWallpaper(url)}
+
+/* 暴露给调试/自动化验证使用。
+   ⚠️ 验证脚本必须通过它来切换场景，不要直接 setProperty 改 CSS 变量：
+   直接改会被 onChange 回写覆盖，测试实际跑在旧状态上却以为自己改了 —— 
+   会导致「明明设了沉浸态，测出来却是非沉浸」这类假结论。 */
+window.qld = Object.assign(window.qld || {}, { skin });
+
+/** 把皮肤状态回填到界面控件（滑块 / 开关 / 输入框 / 选中态） */
+function syncSkinControls(st){
+ const m=$("maskRange"),c=$("cardRange");
+ if(m){m.value=String(Math.round(st.mask*100));$("maskVal").textContent=Math.round(st.mask*100)+"%"}
+ if(c){c.value=String(Math.round(st.cardAlpha*100));$("cardVal").textContent=Math.round(st.cardAlpha*100)+"%"}
+ if($("ckImmersive"))$("ckImmersive").checked=!!st.immersive;
+ if($("bgUrl")&&document.activeElement!==$("bgUrl"))$("bgUrl").value=st.wallpaper||"";
+ // 卡片透明度在非沉浸模式下不生效 → 视觉上禁用滑块，避免「拖了没反应」的困惑
+ const disabled=!st.immersive&&!st.wallpaper;
+ [c,$("cardRange")].forEach(el=>{if(el&&el.tagName==="INPUT")el.disabled=false});
+ document.querySelectorAll(".skinCard").forEach(el=>el.classList.toggle("on",el.dataset.skin===st.id));
 }
-function initBeauty(){
+
+/** 渲染皮肤卡片列表 */
+function renderSkinList(list){
+ $("skinGrid").innerHTML=list.map(s=>`
+  <button class="skinCard${s.id===skin.state.id?" on":""}" data-skin="${esc(s.id)}">
+   <span class="skinThumb" style="${s.wallpaper?`background-image:url('${esc(s.wallpaper)}')`:"background:linear-gradient(135deg,var(--panel2),var(--sideBg))"}"></span>
+   <b>${esc(s.name)}</b>
+   <span class="muted small">${esc(s.desc||"")}</span>
+  </button>`).join("");
+ document.querySelectorAll(".skinCard").forEach(el=>
+  el.addEventListener("click",()=>{
+   skin.use(el.dataset.skin);
+   if(skin.pendingTheme)applyTheme(skin.pendingTheme);
+  }));
+}
+
+async function initBeauty(){
+ /* 主题区（保持不变） */
  $("themeGrid").innerHTML=THEMES.map(t=>`<button class="themeCard" data-t="${t.id}"><span class="sw">${t.sw.map(c=>`<i style="background:${c}"></i>`).join("")}</span><b>${t.name}</b><span class="muted small">${t.desc}</span></button>`).join("");
  document.querySelectorAll(".themeCard").forEach(c=>c.addEventListener("click",()=>applyTheme(c.dataset.t)));
  applyTheme(localStorage.getItem("ql_theme")||"aurora");
  const fx=localStorage.getItem("ql_fx")!=="0";$("ckFx").checked=fx;applyFx(fx);
  $("ckFx").addEventListener("change",()=>applyFx($("ckFx").checked));
- $("bgUrl").value=localStorage.getItem("ql_bg")||"";
- $("bgApply").addEventListener("click",()=>applyBg($("bgUrl").value.trim()));
- $("bgClear").addEventListener("click",()=>{$("bgUrl").value="";applyBg("")});
+
+ /* 皮肤区 */
+ await skin.loadList();
+ skin.restore();                       // 先恢复上次皮肤（含壁纸/透明度）
+ renderSkinList(skin.list);
+ syncSkinControls(skin.state);
+
+ $("maskRange").addEventListener("input",e=>{
+  $("maskVal").textContent=e.target.value+"%";
+  skin.setMask(Number(e.target.value)/100);        // 实时生效，不刷新
+ });
+ $("cardRange").addEventListener("input",e=>{
+  $("cardVal").textContent=e.target.value+"%";
+  skin.setCardAlpha(Number(e.target.value)/100);
+ });
+ $("ckImmersive").addEventListener("change",e=>skin.setImmersive(e.target.checked));
+ $("bgApply").addEventListener("click",()=>skin.setWallpaper($("bgUrl").value.trim()));
+ $("bgClear").addEventListener("click",()=>{$("bgUrl").value="";skin.setWallpaper("")});
+ $("skinReset").addEventListener("click",()=>{skin.reset();syncSkinControls(skin.state)});
+ $("blurRange").addEventListener("input",e=>{
+  $("blurVal").textContent=e.target.value+"px";
+  skin.setBlur(Number(e.target.value));
+ });
+
+ /* 本地壁纸：FileReader → dataURL，无需上传，纯本机 */
+ $("bgFile").addEventListener("change",e=>{
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
+  if(f.size>4*1024*1024){alert("图片较大（>4MB），会占用较多内存，建议压缩后再用。");}
+  const fr=new FileReader();
+  fr.onload=()=>skin.setWallpaper(String(fr.result));
+  fr.onerror=()=>alert("读取本地图片失败");
+  fr.readAsDataURL(f);
+ });
 }
 
 /* ---------- 组件实例 ---------- */
 /* 三个 UI 组件在脚本开头一次性创建（挂载点此时已存在，因为 module 脚本天然 defer） */
 
 // 统计卡片：只建一次 DOM，后续用 update() 原地改数字（带滚动动画），不重建
-const cards=new StatCards({mount:$("statCards")});
+// skin:true → 卡片透明度跟随皮肤系统的沉浸模式
+const cards=new StatCards({mount:$("statCards"),skin:true});
 
 // 任务列表：虚拟滚动，DOM 常驻行数与数据量解耦
 let vt=null; // 延后到 DOMContentLoaded 后创建（需要容器有高度才能算可视行数）
