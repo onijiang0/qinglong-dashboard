@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>组件总览压测台</title>
+<link rel="icon" href="data:,"><!-- 空 favicon，避免 404 干扰控制台 -->
+<style>
+/* 只复刻项目的主题变量。正式接入时删掉本段，直接用 index.html 里那四套 body[data-theme]。
+   这里保持与 index.html 完全一致的 4 套覆盖规则，否则切换主题看不到效果。 */
+:root{
+ --bg:#09090f;--panel:#11111b;--panel2:#171725;
+ --line:#28283a;--text:#eeeef7;--muted:#9292ad;
+ --accent:#9b7cff;--accentSoft:#bca8ff;--accentDim:rgba(155,124,255,.14);
+ --navActiveBg:#211b39;--navHoverBg:#1c1a2a;
+ --green:#3ddc97;--red:#ff647c;--amber:#efb327;
+}
+body[data-theme="ocean"]{
+ --bg:#060d17;--panel:#0c1526;--panel2:#11203a;
+ --line:#1d3352;--muted:#7e93b4;
+ --accent:#4cc3ff;--accentSoft:#8fd9ff;--accentDim:rgba(76,195,255,.14);
+ --navActiveBg:#12283f;--navHoverBg:#0e1c30;
+}
+body[data-theme="jade"]{
+ --bg:#070c0a;--panel:#0d1713;--panel2:#122019;
+ --line:#1d3328;--muted:#86a294;
+ --accent:#34d399;--accentSoft:#7ce7bb;--accentDim:rgba(52,211,153,.13);
+ --navActiveBg:#12291e;--navHoverBg:#0f1f17;
+}
+body[data-theme="sakura"]{
+ --bg:#120a12;--panel:#1b101c;--panel2:#241726;
+ --line:#3a2440;--muted:#b292ae;
+ --accent:#ff7eb6;--accentSoft:#ffb1d3;--accentDim:rgba(255,126,182,.13);
+ --navActiveBg:#321b35;--navHoverBg:#271629;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+ font:14px system-ui,-apple-system,"Segoe UI",sans-serif;padding:22px 24px 60px}
+/* 复刻项目的氛围光，用于验证毛玻璃叠在光晕上的观感 */
+body.fx{background-image:
+ radial-gradient(1100px 500px at 85% -10%, var(--accentDim), transparent 60%),
+ radial-gradient(900px 420px at -10% 110%, var(--accentDim), transparent 55%)}
+/* 浅色模式色板（真实项目里应作为一套 light 主题变量） */
+body[data-scheme="light"]{
+ --bg:#f2f3f8;--panel:#ffffff;--panel2:#f7f8fc;
+ --line:#e2e4ed;--text:#1a1a24;--muted:#6b6b85;
+ --accent:#6d4aff;--accentSoft:#5b3ed6;--accentDim:rgba(109,74,255,.1);
+ --navActiveBg:#ece7ff;--navHoverBg:#f1f2f8;
+ --green:#12a06a;--red:#d92b4b;--amber:#b8790a;
+ background-image:none}
+h1{font-size:19px;margin:0 0 4px}
+h2{font-size:15px;margin:26px 0 10px;display:flex;align-items:center;gap:9px}
+h2 .tag{font-size:11px;font-weight:600;color:var(--accentSoft);
+ background:var(--accentDim);border-radius:99px;padding:2px 8px}
+.muted{color:var(--muted)}.small{font-size:12px}
+.bar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.input{background:var(--panel2);color:var(--text);border:1px solid var(--line);
+ padding:8px 11px;border-radius:9px;min-width:0}
+.input.grow{flex:1;min-width:180px}
+.fps{border:1px solid var(--line);background:var(--panel2);border-radius:9px;
+ padding:8px 11px;font-variant-numeric:tabular-nums;font-size:12px}
+.fps b{color:var(--green)}
+.fps.warn b{color:var(--amber)}
+.sw{display:inline-flex;gap:5px}
+.sw i{width:15px;height:15px;border-radius:5px;display:inline-block;border:1px solid rgba(255,255,255,.15)}
+.themerow{display:flex;gap:8px;flex-wrap:wrap}
+.themerow button{border:1px solid var(--line);background:var(--panel2);color:var(--muted);
+ padding:7px 12px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer}
+.themerow button.on{border-color:var(--accent);color:var(--accentSoft)}
+</style>
+</head>
+<body class="fx" data-theme="aurora" data-scheme="dark">
+<h1>组件总览压测台</h1>
+<div class="muted small">① 虚拟列表 · ② 毛玻璃统计卡片 · ③ 日志滚动查看器 · ④ 轮询退避</div>
+
+<!-- 主题切换：验证玻璃变量在四套主题下都成立 -->
+<div class="bar" style="margin-top:14px">
+  <span class="small muted">主题：</span>
+  <div class="themerow" id="themes"></div>
+  <span class="small muted" style="margin-left:10px">方案：</span>
+  <div class="themerow">
+    <button id="toLight">浅色模式</button>
+    <button id="toDark" class="on">深色模式</button>
+  </div>
+  <span class="fps" id="fps">FPS <b>—</b> · DOM <b>—</b></span>
+</div>
+
+<!-- ② 统计卡片 -->
+<h2>② 统计卡片 <span class="tag">毛玻璃 / 深色模式</span>
+  <button class="input" id="rand" style="cursor:pointer;padding:4px 10px;font-size:12px">随机刷新数值</button>
+</h2>
+<div id="cards"></div>
+
+<!-- ④ 轮询 -->
+<h2>④ 轮询退避 <span class="tag">可见性门控 / 指纹去重</span></h2>
+<div id="pollLog" class="small muted" style="font-family:ui-monospace,Consolas,monospace;
+ line-height:1.9;border:1px solid var(--line);border-radius:10px;padding:12px;
+ background:var(--panel);max-height:150px;overflow:auto">等待中…</div>
+
+<!-- ① 虚拟列表 -->
+<h2>① 虚拟滚动任务列表 <span class="tag">5000 条 / DOM 恒定</span></h2>
+<div class="bar">
+  <select class="input" id="size">
+    <option value="500">500 条</option>
+    <option value="5000" selected>5,000 条</option>
+    <option value="20000">20,000 条</option>
+  </select>
+  <input class="input grow" id="q" placeholder="搜索任务名 / 命令（防抖 180ms）">
+  <select class="input" id="f">
+    <option value="all">全部状态</option>
+    <option value="running">运行中</option>
+    <option value="idle">空闲</option>
+    <option value="queued">队列中</option>
+    <option value="disabled">已禁用</option>
+  </select>
+</div>
+<div id="taskMount"></div>
+
+<!-- ③ 日志查看器 -->
+<h2>③ 日志滚动查看器 <span class="tag">自动滚底 / 大文本不卡</span></h2>
+<div class="bar">
+  <button class="input" id="genLog" style="cursor:pointer">生成 2 万行日志</button>
+  <button class="input" id="genBig" style="cursor:pointer">灌入 10 万行（2.5MB，触发 maxLines 截断）</button>
+  <button class="input" id="stream" style="cursor:pointer">▶ 模拟实时追加（50 行/秒）</button>
+  <button class="input" id="stopStream" style="cursor:pointer">■ 停止</button>
+  <button class="input" id="longLine" style="cursor:pointer">插入 2 万字符超长行</button>
+</div>
+<div id="logMount"></div>
+
+<script type="module">
+import { VirtualTaskTable } from "./virtual-task-table.js";
+import { StatCards } from "./stat-cards.js";
+import { LogViewer } from "./log-viewer.js";
+import { Poller, throttle, debounce } from "./poller.js";
+
+/* ---------------- 主题 ---------------- */
+const THEMES = [
+  { id: "aurora", name: "暗紫极光" }, { id: "ocean", name: "深海蓝调" },
+  { id: "jade", name: "墨玉翡翠" }, { id: "sakura", name: "樱花夜粉" }
+];
+const tg = document.getElementById("themes");
+tg.innerHTML = THEMES.map(t => `<button data-t="${t.id}" class="${t.id === "aurora" ? "on" : ""}">${t.name}</button>`).join("");
+tg.addEventListener("click", e => {
+  const b = e.target.closest("button[data-t]"); if (!b) return;
+  document.body.dataset.theme = b.dataset.t;
+  tg.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+});
+document.getElementById("toLight").onclick = () => {
+  document.body.dataset.scheme = "light";
+  document.getElementById("toLight").classList.add("on");
+  document.getElementById("toDark").classList.remove("on");
+};
+document.getElementById("toDark").onclick = () => {
+  document.body.dataset.scheme = "dark";
+  document.getElementById("toDark").classList.add("on");
+  document.getElementById("toLight").classList.remove("on");
+};
+
+/* ---------------- ② 统计卡片 ---------------- */
+const cards = new StatCards({ mount: document.getElementById("cards") });
+const mk = (v) => ([
+  { key: "total", label: "任务总数", value: v.total, hint: "定时任务", tone: "accent", icon: "▦" },
+  { key: "running", label: "运行中", value: v.running, hint: "status = 0（青龙 2.20 语义）", tone: "green", icon: "▶", pulse: true },
+  { key: "recent", label: "24h 内执行过", value: v.recent, hint: "按上次执行时间", tone: "accent", icon: "◔", progress: v.recent / Math.max(v.total, 1) },
+  { key: "disabled", label: "已禁用", value: v.disabled, hint: "未参与调度", tone: "amber", icon: "⏸", progress: v.disabled / Math.max(v.total, 1) }
+]);
+cards.setData(mk({ total: 423, running: 6, recent: 381, disabled: 36 }));
+document.getElementById("rand").onclick = () => {
+  const r = () => Math.floor(Math.random() * 500);
+  const total = 400 + r() % 100, running = r() % 12, disabled = r() % 60;
+  cards.updateAll({
+    total: { value: total }, running: { value: running },
+    recent: { value: 200 + r() % 250, progress: Math.random() },
+    disabled: { value: disabled, progress: disabled / total }
+  });
+};
+
+/* ---------------- ④ 轮询 ---------------- */
+const plog = document.getElementById("pollLog");
+let pollCount = 0, fakeData = { code: 200, data: [] };
+function appendPoll(msg) {
+  const t = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+  plog.innerHTML = `[${t}] ${msg}<br>` + plog.innerHTML;
+}
+// 模拟 fetcher：每 4 次里只有 1 次真正变更数据，用于验证指纹去重
+const poller = new Poller({
+  interval: 3000,
+  fetcher: async () => {
+    pollCount++;
+    await new Promise(r => setTimeout(r, 120));
+    if (pollCount % 4 === 0) { fakeData = { code: 200, data: [{ id: 1, status: pollCount % 3, isDisabled: 0, lastExecutionTime: pollCount }] }; }
+    return fakeData;
+  },
+  onData: (d, m) => appendPoll(`✓ 成功 ${m.durationMs}ms · 内容${m.changed ? "<b style='color:var(--green)'>已变化→触发重绘</b>" : "未变化→<b>跳过渲染</b>"}${m.first ? " · 首次" : ""}`),
+  onError: (e, m) => appendPoll(`✗ 失败(${m.failures}) ${e.message} · 下次间隔退避至 ${Math.round(m.nextInterval / 1000)}s`)
+});
+poller.start();
+appendPoll("轮询已启动，间隔 3s；页面切到别的 tab 会自动暂停");
+
+/* ---------------- ① 虚拟列表 ---------------- */
+const CMDS = ["task /ql/data/scripts/wxapp/camel.js", "task /ql/data/scripts/wxapp/breo.py",
+  "node sendNotify.js", "task leafTheFish_DeathNote_main/txs.js", "python3 ql/checkin.py",
+  "task smallfawn_QLScriptPublic_main/main.js", "task wxapp/quiz.js"];
+const SCHED = ["0 8 * * *", "*/30 * * * *", "0 9,21 * * *", "5 0 * * *", "*/15 8-22 * * *", "0 0 * * 1"];
+function makeTasks(n) {
+  const now = Math.floor(Date.now() / 1000);
+  return Array.from({ length: n }, (_, i) => {
+    const r = Math.random();
+    return {
+      id: 1000 + i,
+      name: `签到任务-${String(i + 1).padStart(5, "0")}-${["camel", "breo", "quiz", "txs"][i % 4]}`,
+      command: CMDS[i % CMDS.length],
+      schedule: SCHED[i % SCHED.length],
+      status: r > 0.985 ? 0 : r > 0.975 ? 3 : 1,
+      isDisabled: Math.random() > 0.88 ? 1 : 0,
+      lastExecutionTime: Math.random() > 0.06 ? now - Math.floor(Math.random() * 3 * 86400) : 0
+    };
+  });
+}
+const vt = new VirtualTaskTable({ mount: document.getElementById("taskMount") });
+vt.setData(makeTasks(5000));
+document.getElementById("size").onchange = e => vt.setData(makeTasks(Number(e.target.value)));
+document.getElementById("f").onchange = e => vt.setFilter(e.target.value);
+// 搜索走组件内置防抖
+document.getElementById("q").addEventListener("input", e => vt.setQuery(e.target.value));
+
+/* ---------------- ③ 日志查看器 ---------------- */
+const lv = new LogViewer({ mount: document.getElementById("logMount"), title: "wxapp_camel/1001.log" });
+// 注意：造文本本身很贵 —— toLocaleString 调 10 万次要 6.5s，
+// 而组件解析同一份文本只要 6ms。若把两者混在一起计时，会误判成"组件卡"。
+// 所以这里用便宜的字符串拼接预生成时间戳池。
+function buildLog(n) {
+  const out = new Array(n);
+  const base = Math.floor(Date.now() / 1000);
+  for (let i = 0; i < n; i++) {
+    const ts = base - (n - i);
+    out[i] = `[${ts}] [INFO] 第 ${i + 1} 行 账号 177****${(1000 + i) % 10000} 领取成功，积分 +${5 + (i % 20)}`;
+  }
+  return out.join("\n");
+}
+lv.setContent(buildLog(300), "wxapp_camel/1001.log");
+document.getElementById("genLog").onclick = () => { lv.setContent(buildLog(20000), "大日志 20,000 行"); lv.scrollToBottom(true); };
+document.getElementById("genBig").onclick = () => { lv.setContent(buildLog(100000), "极端日志 100,000 行"); lv.scrollToBottom(true); };
+document.getElementById("longLine").onclick = () => {
+  lv.append("\n[TEXT] " + "X".repeat(20000));
+};
+let streamTimer = null, seq = 0;
+document.getElementById("stream").onclick = () => {
+  if (streamTimer) return;
+  streamTimer = setInterval(() => {
+    let chunk = "";
+    for (let i = 0; i < 5; i++) chunk += `[${new Date().toLocaleTimeString("zh-CN", { hour12: false })}] [STREAM] 实时追加 #${++seq} 领取成功\n`;
+    lv.append(chunk);
+  }, 100); // 50 行/秒
+};
+document.getElementById("stopStream").onclick = () => { clearInterval(streamTimer); streamTimer = null; };
+
+/* ---------------- FPS 探针 ---------------- */
+const fpsEl = document.getElementById("fps");
+let frames = 0, last = performance.now();
+function tick(now) {
+  frames++;
+  if (now - last >= 1000) {
+    const fps = Math.round((frames * 1000) / (now - last));
+    const dom = document.querySelectorAll(".vt-row, .lv-line").length;
+    fpsEl.innerHTML = `FPS <b>${fps}</b> · DOM <b>${dom}</b>`;
+    fpsEl.classList.toggle("warn", fps < 50);
+    frames = 0; last = now;
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// 暴露给自动化测试
+window.__cmp = { vt, lv, cards, poller, throttle, debounce };
+</script>
+</body>
+</html>
